@@ -336,21 +336,14 @@
                 <p class="card-description">Administration des comptes</p>
             </a>
 
-            <a href="restaurer_compte.php" class="admin-card">
-                <div class="card-icon">
-                    <i class="fas fa-undo"></i>
-                </div>
-                <h3 class="card-title">Restaurer Compte</h3>
-                <p class="card-description">Récupérer les comptes supprimés</p>
-            </a>
-
             <a href="supprimer_compte.php" class="admin-card">
-                <div class="card-icon">
-                    <i class="fas fa-user-minus"></i>
-                </div>
-                <h3 class="card-title">Supprimer Compte</h3>
-                <p class="card-description">Supprimer des comptes utilisateurs</p>
-            </a>
+    <div class="card-icon">
+        <i class="fas fa-user-minus"></i>
+    </div>
+    <h3 class="card-title">Supprimer ou Restaurer</h3>
+    <p class="card-description">Supprimer ou Restaurer des comptes utilisateurs</p>
+</a>
+
         </div>
 
         <!-- Statistiques rapides -->

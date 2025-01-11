@@ -10,40 +10,58 @@ if ($_SESSION['user_role'] !== 'Administrateur') {
     exit();
 }
 
-// Connexion à la base de données
+// Database connection
 $conn = new mysqli("localhost", "root", "", "exammaster");
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// Traitement de la suppression
+// Handle deletion
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_user'])) {
     $user_id = $_POST['user_id'];
     
-    // Vérifier que l'utilisateur n'est pas l'administrateur actuel
     if ($user_id != $_SESSION['user_id']) {
-        // Commencer une transaction
         $conn->begin_transaction();
         
         try {
-            // Supprimer l'utilisateur
-            $sql = "DELETE FROM users WHERE id = ? AND role != 'Administrateur'";
-            $stmt = $conn->prepare($sql);
+            // Get user data before deletion
+            $get_user_sql = "SELECT * FROM users WHERE id = ?";
+            $stmt = $conn->prepare($get_user_sql);
             $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $user_result = $stmt->get_result();
+            $user_data = $user_result->fetch_assoc();
             
-            if ($stmt->execute()) {
-                if ($stmt->affected_rows > 0) {
-                    $conn->commit();
-                    $success_message = "Compte supprimé avec succès!";
-                } else {
-                    throw new Exception("Impossible de supprimer un compte administrateur.");
-                }
+            if ($user_data) {
+                // Insert into archived_users
+                $archive_sql = "INSERT INTO archived_users (user_id, firstname, lastname, email, password, role, created_at, deleted_at, reason_for_deletion, status) 
+                              VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, 'archived')";
+                $stmt = $conn->prepare($archive_sql);
+                $reason = "Account deleted by administrator";
+                $stmt->bind_param("isssssss", 
+                    $user_data['id'],
+                    $user_data['firstname'],
+                    $user_data['lastname'],
+                    $user_data['email'],
+                    $user_data['password'],
+                    $user_data['role'],
+                    $user_data['created_at'],
+                    $reason
+                );
+                $stmt->execute();
+
+                // Update deletion timestamp in users table
+                $update_sql = "UPDATE users SET deleted_at = NOW() WHERE id = ?";
+                $stmt = $conn->prepare($update_sql);
+                $stmt->bind_param("i", $user_id);
+                $stmt->execute();
+
+                $conn->commit();
+                $success_message = "Compte archivé avec succès!";
             } else {
-                throw new Exception("Erreur lors de la suppression du compte.");
+                throw new Exception("Utilisateur non trouvé.");
             }
-            
-            $stmt->close();
         } catch (Exception $e) {
             $conn->rollback();
             $error_message = $e->getMessage();
@@ -53,8 +71,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['delete_user'])) {
     }
 }
 
-// Récupération des utilisateurs
-$sql = "SELECT * FROM users WHERE id != ? ORDER BY created_at DESC";
+// Get active users (not deleted)
+$sql = "SELECT * FROM users WHERE id != ? AND deleted_at IS NULL ORDER BY created_at DESC";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $_SESSION['user_id']);
 $stmt->execute();
@@ -164,8 +182,19 @@ $result = $stmt->get_result();
             margin-bottom: 1rem;
         }
 
-        .back-btn:hover {
-            background-color: #4b5563;
+        .nav-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .restore-link {
+            background-color: #059669;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.375rem;
+            text-decoration: none;
         }
 
         .success-message {
@@ -202,12 +231,6 @@ $result = $stmt->get_result();
             max-width: 500px;
             margin: 2rem auto;
             text-align: center;
-        }
-
-        .modal-title {
-            font-size: 1.25rem;
-            margin-bottom: 1.5rem;
-            color: #dc2626;
         }
 
         .modal-buttons {
@@ -258,9 +281,14 @@ $result = $stmt->get_result();
     </nav>
 
     <div class="container">
-        <a href="dashboard.php" class="back-btn">
-            <i class="fas fa-arrow-left"></i> Retour au tableau de bord
-        </a>
+        <div class="nav-buttons">
+            <a href="dashboard.php" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+            </a>
+            <a href="restaurer_compte.php" class="restore-link">
+                <i class="fas fa-trash-restore"></i> Restaurer des comptes
+            </a>
+        </div>
 
         <div class="card">
             <h1 class="page-title">Suppression des comptes utilisateurs</h1>
@@ -309,7 +337,7 @@ $result = $stmt->get_result();
         <div class="modal-content">
             <h2 class="modal-title">Confirmer la suppression</h2>
             <p>Êtes-vous sûr de vouloir supprimer le compte de <span id="userName"></span> ?</p>
-            <p>Cette action est irréversible.</p>
+            <p>Cette action archivera le compte.</p>
             
             <div class="modal-buttons">
                 <button class="cancel-btn" onclick="closeDeleteModal()">Annuler</button>

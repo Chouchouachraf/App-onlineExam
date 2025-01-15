@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1
--- Généré le : ven. 10 jan. 2025 à 12:00
+-- Généré le : mer. 15 jan. 2025 à 15:11
 -- Version du serveur : 10.4.32-MariaDB
 -- Version de PHP : 8.2.12
 
@@ -24,26 +24,6 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Structure de la table `archived_users`
---
-
-CREATE TABLE `archived_users` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `firstname` varchar(100) NOT NULL,
-  `lastname` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `role` enum('Administrateur','Enseignant','Etudiant') NOT NULL,
-  `created_at` timestamp NULL DEFAULT NULL,
-  `deleted_at` timestamp NULL DEFAULT current_timestamp(),
-  `reason_for_deletion` text DEFAULT NULL,
-  `status` enum('archived','restored') DEFAULT 'archived'
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Structure de la table `classes`
 --
 
@@ -59,8 +39,8 @@ CREATE TABLE `classes` (
 --
 
 INSERT INTO `classes` (`id`, `name`, `description`, `created_at`) VALUES
-(1, 'dd201', 'dd201', '2025-01-05 05:20:06'),
-(2, 'dd202', 'dd202', '2025-01-05 05:20:19');
+(1, 'dd201', 'dd201', '2025-01-05 04:20:06'),
+(2, 'dd202', 'dd202', '2025-01-05 04:20:19');
 
 -- --------------------------------------------------------
 
@@ -78,7 +58,11 @@ CREATE TABLE `class_student` (
 --
 
 INSERT INTO `class_student` (`class_id`, `student_id`) VALUES
-(1, 4);
+(1, 4),
+(1, 13),
+(1, 16),
+(2, 12),
+(2, 17);
 
 -- --------------------------------------------------------
 
@@ -108,10 +92,12 @@ CREATE TABLE `exams` (
 --
 
 INSERT INTO `exams` (`id`, `title`, `subject_id`, `class_id`, `teacher_id`, `duration`, `total_points`, `exam_date`, `start_time`, `end_time`, `instructions`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'Laravel (Test)', 5, 1, 2, 60, 20, '2025-01-04 00:00:00', '22:00:00', '23:00:00', 'Instructions test', 'published', '2025-01-05 05:48:38', '2025-01-05 06:06:51'),
-(2, 'dsfsdf', 5, 1, 2, 34, 20, '2025-01-04 00:00:00', '22:08:00', '22:13:00', 'Test', 'published', '2025-01-05 06:09:24', '2025-01-05 06:09:24'),
-(3, 'CC1 ALGO', 2, 1, 2, 60, 20, '2025-01-06 00:00:00', '11:38:00', '12:38:00', '', 'published', '2025-01-06 10:41:02', '2025-01-06 10:41:02'),
-(4, 'CC1 MARKETING', 3, 1, 2, 90, 20, '2025-01-08 00:00:00', '22:00:00', '23:05:00', 'GHITA ', 'published', '2025-01-07 18:02:14', '2025-01-07 18:02:14');
+(1, 'Laravel (Test)', 5, 1, 2, 60, 20, '2025-01-04 00:00:00', '22:00:00', '23:00:00', 'Instructions test', 'published', '2025-01-05 04:48:38', '2025-01-05 05:06:51'),
+(2, 'dsfsdf', 5, 1, 2, 34, 20, '2025-01-04 00:00:00', '22:08:00', '22:13:00', 'Test', 'published', '2025-01-05 05:09:24', '2025-01-05 05:09:24'),
+(3, 'CC1 ALGO', 2, 1, 2, 60, 20, '2025-01-06 00:00:00', '11:38:00', '12:38:00', '', 'published', '2025-01-06 09:41:02', '2025-01-06 09:41:02'),
+(4, 'CC1 MARKETING', 3, 1, 2, 90, 20, '2025-01-08 00:00:00', '22:00:00', '23:05:00', 'GHITA ', 'published', '2025-01-07 17:02:14', '2025-01-07 17:02:14'),
+(5, 'EFM 2', 5, 1, 2, 120, 2, '2025-01-14 00:00:00', '22:59:00', '23:59:00', '', 'published', '2025-01-13 16:00:38', '2025-01-13 16:00:38'),
+(6, 'CC n3', 3, 1, 2, 60, 3, '2025-01-31 00:00:00', '04:09:00', '05:09:00', '', 'published', '2025-01-14 00:10:44', '2025-01-14 00:10:44');
 
 -- --------------------------------------------------------
 
@@ -148,6 +134,20 @@ CREATE TABLE `notifications` (
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Déchargement des données de la table `notifications`
+--
+
+INSERT INTO `notifications` (`id`, `user_id`, `title`, `message`, `type`, `priority`, `link`, `is_read`, `created_at`) VALUES
+(5, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-11 20:38:32'),
+(6, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-11 20:43:52'),
+(7, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-11 20:44:34'),
+(8, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-11 20:48:36'),
+(9, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-11 20:48:38'),
+(10, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-13 22:36:06'),
+(11, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-15 06:39:22'),
+(12, 1, 'Compte restauré', 'Un compte utilisateur a été restauré.', 'success', 'moyenne', NULL, 0, '2025-01-15 09:29:00');
+
 -- --------------------------------------------------------
 
 --
@@ -166,10 +166,10 @@ CREATE TABLE `notification_categories` (
 --
 
 INSERT INTO `notification_categories` (`id`, `name`, `description`, `created_at`) VALUES
-(1, 'System', 'System and maintenance notifications', '2025-01-05 04:27:30'),
-(2, 'Exams', 'Exam-related notifications', '2025-01-05 04:27:30'),
-(3, 'Accounts', 'Account management notifications', '2025-01-05 04:27:30'),
-(4, 'Results', 'Exam results notifications', '2025-01-05 04:27:30');
+(1, 'System', 'System and maintenance notifications', '2025-01-05 03:27:30'),
+(2, 'Exams', 'Exam-related notifications', '2025-01-05 03:27:30'),
+(3, 'Accounts', 'Account management notifications', '2025-01-05 03:27:30'),
+(4, 'Results', 'Exam results notifications', '2025-01-05 03:27:30');
 
 -- --------------------------------------------------------
 
@@ -215,13 +215,15 @@ CREATE TABLE `questions` (
 --
 
 INSERT INTO `questions` (`id`, `exam_id`, `question_text`, `question_type`, `points`, `created_at`) VALUES
-(1, 1, 'Question 1 test', 'qcm', 10, '2025-01-05 05:48:38'),
-(2, 1, 'Question 2 test ', 'text', 10, '2025-01-05 05:48:38'),
-(3, 2, 'Test', 'text', 20, '2025-01-05 06:09:24'),
-(4, 3, 'Q1', 'text', 5, '2025-01-06 10:41:02'),
-(5, 3, 'Q2', 'qcm', 5, '2025-01-06 10:41:02'),
-(6, 3, 'Q3', 'truefalse', 5, '2025-01-06 10:41:02'),
-(7, 4, 'QUESTION 1', 'qcm', 12, '2025-01-07 18:02:14');
+(1, 1, 'Question 1 test', 'qcm', 10, '2025-01-05 04:48:38'),
+(2, 1, 'Question 2 test ', 'text', 10, '2025-01-05 04:48:38'),
+(3, 2, 'Test', 'text', 20, '2025-01-05 05:09:24'),
+(4, 3, 'Q1', 'text', 5, '2025-01-06 09:41:02'),
+(5, 3, 'Q2', 'qcm', 5, '2025-01-06 09:41:02'),
+(6, 3, 'Q3', 'truefalse', 5, '2025-01-06 09:41:02'),
+(7, 4, 'QUESTION 1', 'qcm', 12, '2025-01-07 17:02:14'),
+(8, 5, 'RCA OU WAC', 'qcm', 2, '2025-01-13 16:00:38'),
+(9, 6, 'Rca ou wac', 'text', 3, '2025-01-14 00:10:44');
 
 -- --------------------------------------------------------
 
@@ -255,13 +257,13 @@ CREATE TABLE `question_options` (
 --
 
 INSERT INTO `question_options` (`id`, `question_id`, `option_text`, `is_correct`, `created_at`) VALUES
-(1, 1, 'Choix 1', 1, '2025-01-05 05:48:38'),
-(2, 1, 'Choix 1', 0, '2025-01-05 05:48:38'),
-(3, 5, 'op1', 1, '2025-01-06 10:41:02'),
-(4, 5, 'op2', 1, '2025-01-06 10:41:02'),
-(5, 5, 'op3', 0, '2025-01-06 10:41:02'),
-(6, 7, 'CHOIX1', 1, '2025-01-07 18:02:14'),
-(7, 7, 'CHOIX2', 0, '2025-01-07 18:02:14');
+(1, 1, 'Choix 1', 1, '2025-01-05 04:48:38'),
+(2, 1, 'Choix 1', 0, '2025-01-05 04:48:38'),
+(3, 5, 'op1', 1, '2025-01-06 09:41:02'),
+(4, 5, 'op2', 1, '2025-01-06 09:41:02'),
+(5, 5, 'op3', 0, '2025-01-06 09:41:02'),
+(6, 7, 'CHOIX1', 1, '2025-01-07 17:02:14'),
+(7, 7, 'CHOIX2', 0, '2025-01-07 17:02:14');
 
 -- --------------------------------------------------------
 
@@ -296,11 +298,11 @@ CREATE TABLE `subjects` (
 --
 
 INSERT INTO `subjects` (`id`, `name`, `description`, `created_at`) VALUES
-(1, 'Préparation d’un projet web', 'Préparation d’un projet web', '2025-01-05 05:21:58'),
-(2, 'Approche agile', 'Approche agile', '2025-01-05 05:21:58'),
-(3, 'Gestion des données', 'Gestion des données', '2025-01-05 05:21:58'),
-(4, 'Développement front-end', 'Développement front-end', '2025-01-05 05:21:58'),
-(5, 'Développement back-end', 'Développement back-end', '2025-01-05 05:21:58');
+(1, 'Préparation d’un projet web', 'Préparation d’un projet web', '2025-01-05 04:21:58'),
+(2, 'Approche agile', 'Approche agile', '2025-01-05 04:21:58'),
+(3, 'Gestion des données', 'Gestion des données', '2025-01-05 04:21:58'),
+(4, 'Développement front-end', 'Développement front-end', '2025-01-05 04:21:58'),
+(5, 'Développement back-end', 'Développement back-end', '2025-01-05 04:21:58');
 
 -- --------------------------------------------------------
 
@@ -317,29 +319,26 @@ CREATE TABLE `users` (
   `role` enum('Administrateur','Enseignant','Etudiant') NOT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `deleted_at` timestamp NULL DEFAULT NULL
+  `deleted_at` timestamp NULL DEFAULT NULL,
+  `status` enum('pending','approved','rejected') DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Déchargement des données de la table `users`
 --
 
-INSERT INTO `users` (`id`, `firstname`, `lastname`, `email`, `password`, `role`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 'admin', 'admin', 'admin@email.com', 'admin', 'Administrateur', '2025-01-05 04:46:15', '2025-01-10 10:50:54', '2025-01-10 10:50:54'),
-(2, 'enseignant', 'enseignant', 'enseignant@email.com', 'enseignant', 'Enseignant', '2025-01-05 04:47:06', '2025-01-07 17:57:03', NULL),
-(4, 'achraf', 'ghazal', 'achraf@email.com', 'achraf', 'Etudiant', '2025-01-05 05:23:10', '2025-01-05 05:23:10', NULL),
-(8, 'simo', 'tacheroune', 'simo@email.com', 'simo', 'Etudiant', '2025-01-10 10:53:55', '2025-01-10 10:53:55', NULL);
+INSERT INTO `users` (`id`, `firstname`, `lastname`, `email`, `password`, `role`, `created_at`, `updated_at`, `deleted_at`, `status`) VALUES
+(1, 'admin', 'admin', 'admin@email.com', 'admin', 'Administrateur', '2025-01-05 03:46:15', '2025-01-10 09:50:54', '2025-01-10 09:50:54', NULL),
+(2, 'enseignant', 'enseignant', 'enseignant@email.com', 'enseignant', 'Enseignant', '2025-01-05 03:47:06', '2025-01-07 16:57:03', NULL, NULL),
+(4, 'achraf', 'ghazal', 'achraf@email.com', 'achraf', 'Etudiant', '2025-01-05 04:23:10', '2025-01-15 07:44:26', NULL, 'approved'),
+(12, 'walid', 'el kharrak', 'walid@email.com', 'walid', 'Etudiant', '2025-01-13 22:35:52', '2025-01-15 07:39:03', NULL, 'approved'),
+(13, 'adam', 'bendada', 'adam@email.com', 'adam', 'Etudiant', '2025-01-15 06:38:59', '2025-01-15 07:38:58', NULL, 'approved'),
+(16, 'aya', 'sousa', 'aya@email.com', 'aya12345', 'Etudiant', '2025-01-15 08:22:08', '2025-01-15 08:22:30', NULL, 'approved'),
+(17, 'baker', 'taoui', 'baker@email.com', 'baker123', 'Etudiant', '2025-01-15 09:26:49', '2025-01-15 09:29:00', NULL, 'approved');
 
 --
 -- Index pour les tables déchargées
 --
-
---
--- Index pour la table `archived_users`
---
-ALTER TABLE `archived_users`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
 
 --
 -- Index pour la table `classes`
@@ -446,12 +445,6 @@ ALTER TABLE `users`
 --
 
 --
--- AUTO_INCREMENT pour la table `archived_users`
---
-ALTER TABLE `archived_users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT pour la table `classes`
 --
 ALTER TABLE `classes`
@@ -461,7 +454,7 @@ ALTER TABLE `classes`
 -- AUTO_INCREMENT pour la table `exams`
 --
 ALTER TABLE `exams`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT pour la table `exam_results`
@@ -473,125 +466,7 @@ ALTER TABLE `exam_results`
 -- AUTO_INCREMENT pour la table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
---
--- AUTO_INCREMENT pour la table `notification_categories`
---
-ALTER TABLE `notification_categories`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
---
--- AUTO_INCREMENT pour la table `questions`
---
-ALTER TABLE `questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
-
---
--- AUTO_INCREMENT pour la table `question_answers`
---
-ALTER TABLE `question_answers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT pour la table `question_options`
---
-ALTER TABLE `question_options`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
-
---
--- AUTO_INCREMENT pour la table `student_answers`
---
-ALTER TABLE `student_answers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT pour la table `subjects`
---
-ALTER TABLE `subjects`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
-
---
--- AUTO_INCREMENT pour la table `users`
---
-ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
-
---
--- Contraintes pour les tables déchargées
---
-
---
--- Contraintes pour la table `archived_users`
---
-ALTER TABLE `archived_users`
-  ADD CONSTRAINT `archived_users_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `class_student`
---
-ALTER TABLE `class_student`
-  ADD CONSTRAINT `class_student_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `class_student_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `exams`
---
-ALTER TABLE `exams`
-  ADD CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`),
-  ADD CONSTRAINT `exams_ibfk_2` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`),
-  ADD CONSTRAINT `exams_ibfk_3` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`);
-
---
--- Contraintes pour la table `exam_results`
---
-ALTER TABLE `exam_results`
-  ADD CONSTRAINT `exam_results_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`),
-  ADD CONSTRAINT `exam_results_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`);
-
---
--- Contraintes pour la table `notifications`
---
-ALTER TABLE `notifications`
-  ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `notification_categorization`
---
-ALTER TABLE `notification_categorization`
-  ADD CONSTRAINT `notification_categorization_ibfk_1` FOREIGN KEY (`notification_id`) REFERENCES `notifications` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `notification_categorization_ibfk_2` FOREIGN KEY (`category_id`) REFERENCES `notification_categories` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `notification_preferences`
---
-ALTER TABLE `notification_preferences`
-  ADD CONSTRAINT `notification_preferences_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `questions`
---
-ALTER TABLE `questions`
-  ADD CONSTRAINT `questions_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `question_answers`
---
-ALTER TABLE `question_answers`
-  ADD CONSTRAINT `question_answers_ibfk_1` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `question_options`
---
-ALTER TABLE `question_options`
-  ADD CONSTRAINT `question_options_ibfk_1` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON DELETE CASCADE;
-
---
--- Contraintes pour la table `student_answers`
---
-ALTER TABLE `student_answers`
-  ADD CONSTRAINT `student_answers_ibfk_1` FOREIGN KEY (`exam_result_id`) REFERENCES `exam_results` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `student_answers_ibfk_2` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`);
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

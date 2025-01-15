@@ -1,64 +1,51 @@
-<!-- auth/login.php -->
 <?php
 session_start();
 require_once '../config/connection.php';
 
-// Check if form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $firstname = trim($_POST['firstname']);
+    $lastname = trim($_POST['lastname']);
     $email = trim($_POST['email']);
     $password = trim($_POST['password']);
+    $confirm_password = trim($_POST['confirm_password']);
     $error = '';
 
-    // Validate email and password
-    if (empty($email) || empty($password)) {
-        $error = "Veuillez remplir tous les champs.";
+    // Validation de base
+    if (empty($firstname) || empty($lastname) || empty($email) || empty($password) || empty($confirm_password)) {
+        $error = "Tous les champs sont obligatoires.";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = "Format d'email invalide.";
+    } elseif ($password !== $confirm_password) {
+        $error = "Les mots de passe ne correspondent pas.";
+    } elseif (strlen($password) < 8) {
+        $error = "Le mot de passe doit contenir au moins 8 caractères.";
     } else {
         try {
-            // Prepare SQL query to fetch user
-            $stmt = $conn->prepare("SELECT id, firstname, lastname, email, password, role, status FROM users WHERE email = :email");
+            // Vérifier si l'email existe déjà
+            $stmt = $conn->prepare("SELECT id FROM users WHERE email = :email");
             $stmt->bindParam(':email', $email, PDO::PARAM_STR);
             $stmt->execute();
 
-            // Check if user exists
-            if ($stmt->rowCount() === 1) {
-                $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                // Verify the password
-                if ($password === $user['password']) {
-                    // Check if student account is approved
-                    if ($user['role'] === 'Etudiant' && $user['status'] !== 'approved') {
-                        $error = "Votre compte est en attente d'approbation par l'administrateur.";
-                    } else {
-                        // Set up session variables
-                        $_SESSION['user_id'] = $user['id'];
-                        $_SESSION['user_name'] = $user['firstname'] . ' ' . $user['lastname'];
-                        $_SESSION['user_role'] = $user['role'];
-
-                        // Redirect based on role
-                        switch ($user['role']) {
-                            case 'Administrateur':
-                                header("Location: ../admin/dashboard.php");
-                                break;
-                            case 'Enseignant':
-                                header("Location: ../enseignant/dashboard.php");
-                                break;
-                            case 'Etudiant':
-                                header("Location: ../etudiant/dashboard.php");
-                                break;
-                            default:
-                                $error = "Rôle utilisateur invalide.";
-                                break;
-                        }
-                        exit();
-                    }
-                } else {
-                    $error = "Email ou mot de passe incorrect.";
-                }
+            if ($stmt->rowCount() > 0) {
+                $error = "Cet email est déjà utilisé.";
             } else {
-                $error = "Email ou mot de passe incorrect.";
+                // Insérer le nouvel utilisateur avec le statut 'pending'
+                $stmt = $conn->prepare("INSERT INTO users (firstname, lastname, email, password, role, status) VALUES (:firstname, :lastname, :email, :password, 'Etudiant', 'pending')");
+                $stmt->bindParam(':firstname', $firstname, PDO::PARAM_STR);
+                $stmt->bindParam(':lastname', $lastname, PDO::PARAM_STR);
+                $stmt->bindParam(':email', $email, PDO::PARAM_STR);
+                $stmt->bindParam(':password', $password, PDO::PARAM_STR);
+                
+                if ($stmt->execute()) {
+                    $_SESSION['success_message'] = "Votre compte a été créé avec succès. Veuillez attendre l'approbation de l'administrateur.";
+                    header("Location: login.php");
+                    exit();
+                } else {
+                    $error = "Une erreur est survenue lors de l'inscription.";
+                }
             }
         } catch (PDOException $e) {
-            $error = "Une erreur s'est produite : " . $e->getMessage();
+            $error = "Erreur de base de données: " . $e->getMessage();
         }
     }
 }
@@ -69,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - ExamMaster</title>
+    <title>Inscription - ExamMaster</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
     <style>
         * {
@@ -97,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: flex;
             flex-direction: column;
             justify-content: center;
-            max-width: 500px;
+            max-width: 600px;
             margin: 0 auto;
         }
 
@@ -114,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             animation: fadeInUp 0.5s;
         }
 
@@ -186,29 +173,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             text-align: center;
         }
 
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        .success {
+            background-color: #51cf66;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            animation: fadeIn 0.5s;
+            text-align: center;
         }
 
-        .signup-link {
+        .login-link {
             text-align: center;
             margin-top: 20px;
             color: #666;
         }
 
-        .signup-link a {
+        .login-link a {
             color: #3498db;
             text-decoration: none;
             font-weight: 500;
         }
 
-        .signup-link a:hover {
+        .login-link a:hover {
             text-decoration: underline;
         }
 
-        /* Responsive Design */
+        .name-group {
+            display: flex;
+            gap: 20px;
+        }
+
+        .name-group .form-group {
+            flex: 1;
+        }
+
         @media (max-width: 768px) {
             .main-container {
                 flex-direction: column;
@@ -221,6 +220,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             .photo-container {
                 display: none;
             }
+
+            .name-group {
+                flex-direction: column;
+                gap: 0;
+            }
+        }
+
+        .password-requirements {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
         }
     </style>
 </head>
@@ -228,48 +238,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="main-container">
         <div class="form-section">
             <div class="welcome">
-                <h1>Connexion à ExamMaster</h1>
+                <h1>Inscription à ExamMaster</h1>
             </div>
+            
             <?php if (isset($error)): ?>
                 <div class="error">
                     <?php echo htmlspecialchars($error); ?>
                 </div>
             <?php endif; ?>
-            
-            <?php if (isset($_SESSION['success_message'])): ?>
-                <div class="success">
-                    <?php 
-                    echo htmlspecialchars($_SESSION['success_message']);
-                    unset($_SESSION['success_message']);
-                    ?>
-                </div>
-            <?php endif; ?>
 
             <form method="post" action="">
+                <div class="name-group">
+                    <div class="form-group">
+                        <label for="firstname">Prénom</label>
+                        <input 
+                            type="text" 
+                            id="firstname" 
+                            name="firstname" 
+                            value="<?php echo isset($_POST['firstname']) ? htmlspecialchars($_POST['firstname']) : ''; ?>"
+                            required
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="lastname">Nom</label>
+                        <input 
+                            type="text" 
+                            id="lastname" 
+                            name="lastname" 
+                            value="<?php echo isset($_POST['lastname']) ? htmlspecialchars($_POST['lastname']) : ''; ?>"
+                            required
+                        >
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="email">Email</label>
                     <input 
                         type="email" 
                         id="email" 
                         name="email" 
-                        placeholder="Exemple@email.com"
+                        placeholder="exemple@email.com"
                         value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>"
                         required
                     >
                 </div>
+
                 <div class="form-group">
                     <label for="password">Mot de passe</label>
                     <input 
                         type="password" 
                         id="password" 
                         name="password" 
-                        placeholder="Votre mot de passe"
+                        placeholder="Minimum 8 caractères"
+                        required
+                    >
+                    <div class="password-requirements">
+                        Le mot de passe doit contenir au moins 8 caractères
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirmer le mot de passe</label>
+                    <input 
+                        type="password" 
+                        id="confirm_password" 
+                        name="confirm_password" 
+                        placeholder="Confirmez votre mot de passe"
                         required
                     >
                 </div>
-                <button type="submit" class="connect-button">Se connecter</button>
-                <div class="signup-link">
-                    Pas encore de compte? <a href="signup.php">S'inscrire</a>
+
+                <button type="submit" class="connect-button">S'inscrire</button>
+
+                <div class="login-link">
+                    Déjà inscrit? <a href="login.php">Se connecter</a>
                 </div>
             </form>
         </div>

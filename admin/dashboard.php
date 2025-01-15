@@ -306,7 +306,7 @@
             <div class="admin-icon">
                 <i class="fas fa-user-shield"></i>
             </div>
-            <h2 class="admin-name">Bienvenue <?php echo htmlspecialchars($user['firstname'] . ' ' . $user['lastname']); ?></h2>
+            <h2 class="admin-name">Bienvenue <?php echo htmlspecialchars($user['firstname']); ?></h2>
             <p>Administrateur</p>
         </div>
 
@@ -335,7 +335,13 @@
                 <h3 class="card-title">Gérer Comptes</h3>
                 <p class="card-description">Administration des comptes</p>
             </a>
-
+            <a href="approver_etudiant.php" class="admin-card">
+    <div class="card-icon">
+        <i class="fas fa-user-graduate"></i>
+    </div>
+    <h3 class="card-title">Gérer Inscriptions</h3>
+    <p class="card-description">Validation des inscriptions étudiantes</p>
+</a>
             <a href="supprimer_compte.php" class="admin-card">
     <div class="card-icon">
         <i class="fas fa-user-minus"></i>

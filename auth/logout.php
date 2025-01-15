@@ -1,9 +1,6 @@
 <?php
-    session_start();
-
-    session_unset();
-    session_destroy();
-
-    header("Location: login.php");
-    exit();
-?>
+// auth/logout.php - Déconnexion
+session_start();
+session_destroy();
+header("Location: login.php");
+exit();

@@ -205,6 +205,45 @@ $results_stats = $stmt->fetch(PDO::FETCH_ASSOC);
                 margin: 0 auto;
             }
         }
+
+        .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background-color:hsl(208, 7.30%, 45.70%);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    width: fit-content;
+}
+
+.back-btn:hover {
+    background-color: #2563eb;
+}
+
+.back-btn i {
+    font-size: 1rem;
+}
+
+/* Pour assurer que le bouton s'affiche correctement dans la grille */
+.stats-grid {
+    margin-top: 1rem;
+}
+
+/* Ajuster la position du bouton */
+.container {
+    display: flex;
+    flex-direction: column;
+}
+
+.back-btn-container {
+    margin-bottom: 1.5rem;
+}
     </style>
 </head>
 <body>
@@ -219,10 +258,14 @@ $results_stats = $stmt->fetch(PDO::FETCH_ASSOC);
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container">    <a href="dashboard.php" class="back-btn">
+                <i class="fas fa-arrow-left"></i> Retour au tableau de bord
+            </a>
         <div class="stats-grid">
+           
             <!-- Statistiques des utilisateurs -->
             <div class="stat-card">
+                
                 <h3><i class="fas fa-users"></i> Utilisateurs</h3>
                 <div class="stat-value"><?php echo $users_stats['total_users']; ?></div>
                 <div class="stat-subtext">

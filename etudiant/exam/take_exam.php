@@ -1,11 +1,11 @@
 <?php
 session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'Etudiant') {
-    header("Location: ../auth/login.php");
+    header("Location: ../../auth/login.php");
     exit();
 }
 
-require '../config/connection.php';
+require '../../config/connection.php';
 
 $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
 $studentId = $_SESSION['user_id'];
@@ -36,10 +36,22 @@ if (!$exam) {
     exit();
 }
 
+// Adjust the concatenation to avoid double time specification
+$examDateTimeInput = date('Y-m-d', strtotime($exam['exam_date'])) . ' ' . $exam['start_time'];
+$examEndDateTimeInput = date('Y-m-d', strtotime($exam['exam_date'])) . ' ' . $exam['end_time'];
+
+// Debugging (optional)
+error_log("Start time input: " . $examDateTimeInput);
+error_log("End time input: " . $examEndDateTimeInput);
+
+// Correct instantiation
+$examDateTime = new DateTime($examDateTimeInput);
+$examEndDateTime = new DateTime($examEndDateTimeInput);
+
+
 // Vérifier si l'examen est actif
 $currentDateTime = new DateTime();
-$examDateTime = new DateTime($exam['exam_date'] . ' ' . $exam['start_time']);
-$examEndDateTime = new DateTime($exam['exam_date'] . ' ' . $exam['end_time']);
+
 
 if ($currentDateTime > $examEndDateTime) {
     header("Location: exam_list.php?error=expired");
@@ -69,7 +81,6 @@ $questions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Examen en cours - <?php echo htmlspecialchars($exam['title']); ?></title>
-    <link href="style.css" rel="stylesheet">
 </head>
 <body>
     <div class="exam-container">

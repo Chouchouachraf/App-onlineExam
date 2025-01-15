@@ -5,7 +5,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'Etudiant') {
     exit();
 }
 
-require '../config/connection.php';
+require '../../config/connection.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $examId = $_POST['exam_id'];

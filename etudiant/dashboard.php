@@ -230,8 +230,11 @@ if ($classes) {
                             </div>
                             <p><strong>Total des points :</strong> <?php echo $exam['total_points']; ?></p>
                             <div class="exam-actions">
-                                <a href="" class="exam-button">Passer l'examen</a>
-                            </div>
+                                <form action="exam/take_exam.php" method="get">
+                                    <input type="hidden" name="exam_id" value="<?php echo $exam['id']; ?>">
+                                    <input type="submit" value="Passer l'examen" class="exam-button">
+                                </form>
+                        </div>
                         </div>
                     <?php endforeach; ?>
                 </div>

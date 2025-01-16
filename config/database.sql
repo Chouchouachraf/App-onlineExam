@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1
--- Généré le : mer. 15 jan. 2025 à 15:11
+-- Généré le : mer. 15 jan. 2025 à 23:50
 -- Version du serveur : 10.4.32-MariaDB
 -- Version de PHP : 8.2.12
 
@@ -92,12 +92,9 @@ CREATE TABLE `exams` (
 --
 
 INSERT INTO `exams` (`id`, `title`, `subject_id`, `class_id`, `teacher_id`, `duration`, `total_points`, `exam_date`, `start_time`, `end_time`, `instructions`, `status`, `created_at`, `updated_at`) VALUES
-(1, 'Laravel (Test)', 5, 1, 2, 60, 20, '2025-01-04 00:00:00', '22:00:00', '23:00:00', 'Instructions test', 'published', '2025-01-05 04:48:38', '2025-01-05 05:06:51'),
-(2, 'dsfsdf', 5, 1, 2, 34, 20, '2025-01-04 00:00:00', '22:08:00', '22:13:00', 'Test', 'published', '2025-01-05 05:09:24', '2025-01-05 05:09:24'),
-(3, 'CC1 ALGO', 2, 1, 2, 60, 20, '2025-01-06 00:00:00', '11:38:00', '12:38:00', '', 'published', '2025-01-06 09:41:02', '2025-01-06 09:41:02'),
-(4, 'CC1 MARKETING', 3, 1, 2, 90, 20, '2025-01-08 00:00:00', '22:00:00', '23:05:00', 'GHITA ', 'published', '2025-01-07 17:02:14', '2025-01-07 17:02:14'),
-(5, 'EFM 2', 5, 1, 2, 120, 2, '2025-01-14 00:00:00', '22:59:00', '23:59:00', '', 'published', '2025-01-13 16:00:38', '2025-01-13 16:00:38'),
-(6, 'CC n3', 3, 1, 2, 60, 3, '2025-01-31 00:00:00', '04:09:00', '05:09:00', '', 'published', '2025-01-14 00:10:44', '2025-01-14 00:10:44');
+(12, 'CC1 ECO', 1, 1, 2, 90, 20, '2025-01-15 00:00:00', '22:49:00', '23:02:00', 'HHHHHHHHHHHHHHHHHHH', 'published', '2025-01-15 21:49:34', '2025-01-15 21:49:34'),
+(13, 'tets', 1, 1, 2, 90, 20, '2025-01-15 00:00:00', '22:55:00', '23:56:00', 'HHHHHHHHHHHHHHHHHHHH', 'published', '2025-01-15 21:56:35', '2025-01-15 21:56:35'),
+(14, 'QHHHHHH', 1, 1, 2, 90, 10, '2025-01-15 00:00:00', '13:12:00', '14:12:00', 'HHHHHHHHHHHHH', 'published', '2025-01-15 22:12:38', '2025-01-15 22:12:38');
 
 -- --------------------------------------------------------
 
@@ -215,6 +212,7 @@ CREATE TABLE `questions` (
 --
 
 INSERT INTO `questions` (`id`, `exam_id`, `question_text`, `question_type`, `points`, `created_at`) VALUES
+(0, 7, 'c\'est quoi git ', 'text', 10, '2025-01-15 15:13:52'),
 (1, 1, 'Question 1 test', 'qcm', 10, '2025-01-05 04:48:38'),
 (2, 1, 'Question 2 test ', 'text', 10, '2025-01-05 04:48:38'),
 (3, 2, 'Test', 'text', 20, '2025-01-05 05:09:24'),
@@ -307,6 +305,26 @@ INSERT INTO `subjects` (`id`, `name`, `description`, `created_at`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Structure de la table `teachers`
+--
+
+CREATE TABLE `teachers` (
+  `id` int(11) NOT NULL,
+  `full_name` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Déchargement des données de la table `teachers`
+--
+
+INSERT INTO `teachers` (`id`, `full_name`) VALUES
+(1, 'Unknown Teacher'),
+(2, 'John Doe'),
+(3, 'Jane Smith');
+
+-- --------------------------------------------------------
+
+--
 -- Structure de la table `users`
 --
 
@@ -330,11 +348,7 @@ CREATE TABLE `users` (
 INSERT INTO `users` (`id`, `firstname`, `lastname`, `email`, `password`, `role`, `created_at`, `updated_at`, `deleted_at`, `status`) VALUES
 (1, 'admin', 'admin', 'admin@email.com', 'admin', 'Administrateur', '2025-01-05 03:46:15', '2025-01-10 09:50:54', '2025-01-10 09:50:54', NULL),
 (2, 'enseignant', 'enseignant', 'enseignant@email.com', 'enseignant', 'Enseignant', '2025-01-05 03:47:06', '2025-01-07 16:57:03', NULL, NULL),
-(4, 'achraf', 'ghazal', 'achraf@email.com', 'achraf', 'Etudiant', '2025-01-05 04:23:10', '2025-01-15 07:44:26', NULL, 'approved'),
-(12, 'walid', 'el kharrak', 'walid@email.com', 'walid', 'Etudiant', '2025-01-13 22:35:52', '2025-01-15 07:39:03', NULL, 'approved'),
-(13, 'adam', 'bendada', 'adam@email.com', 'adam', 'Etudiant', '2025-01-15 06:38:59', '2025-01-15 07:38:58', NULL, 'approved'),
-(16, 'aya', 'sousa', 'aya@email.com', 'aya12345', 'Etudiant', '2025-01-15 08:22:08', '2025-01-15 08:22:30', NULL, 'approved'),
-(17, 'baker', 'taoui', 'baker@email.com', 'baker123', 'Etudiant', '2025-01-15 09:26:49', '2025-01-15 09:29:00', NULL, 'approved');
+(4, 'achraf', 'ghazal', 'achraf@email.com', 'achraf', 'Etudiant', '2025-01-05 04:23:10', '2025-01-15 07:44:26', NULL, 'approved');
 
 --
 -- Index pour les tables déchargées
@@ -433,6 +447,12 @@ ALTER TABLE `subjects`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Index pour la table `teachers`
+--
+ALTER TABLE `teachers`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Index pour la table `users`
 --
 ALTER TABLE `users`
@@ -454,7 +474,7 @@ ALTER TABLE `classes`
 -- AUTO_INCREMENT pour la table `exams`
 --
 ALTER TABLE `exams`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT pour la table `exam_results`
@@ -467,6 +487,22 @@ ALTER TABLE `exam_results`
 --
 ALTER TABLE `notifications`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+
+--
+-- AUTO_INCREMENT pour la table `teachers`
+--
+ALTER TABLE `teachers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
+-- Contraintes pour les tables déchargées
+--
+
+--
+-- Contraintes pour la table `exams`
+--
+ALTER TABLE `exams`
+  ADD CONSTRAINT `fk_teacher_id` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

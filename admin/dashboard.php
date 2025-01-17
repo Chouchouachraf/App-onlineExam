@@ -1,426 +1,256 @@
 <?php
-    session_start();
-    if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_role'])) {
-        header("Location: ../auth/login.php");
-        exit();
-    }
+session_start();
 
-    if ($_SESSION['user_role'] !== 'Administrateur') {
-        header("Location: ../auth/login.php");
-        exit();
-    }
+// Check if user is logged in and is an admin
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    $_SESSION['login_error'] = "Please login as an administrator to access this page.";
+    header("Location: ../auth/login.php");
+    exit();
+}
 
-    require_once '../config/connection.php';
+// Database connection
+$host = 'localhost';
+$dbname = 'exammaster';
+$user = 'root';
+$pass = '';
 
-    // Récupérer les informations de l'utilisateur connecté
-    $user_query = "SELECT firstname, lastname FROM users WHERE id = ?";
-    $stmt = $conn->prepare($user_query);
-    $stmt->execute([$_SESSION['user_id']]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+try {
+    $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Récupérer le nombre d'utilisateurs actifs
-    $users_query = "SELECT 
-        COUNT(*) as total_users,
-        SUM(CASE WHEN role = 'Etudiant' THEN 1 ELSE 0 END) as students,
-        SUM(CASE WHEN role = 'Enseignant' THEN 1 ELSE 0 END) as teachers
-        FROM users";
-    $stmt = $conn->query($users_query);
-    $users_stats = $stmt->fetch(PDO::FETCH_ASSOC);
+    // Get total counts for dashboard
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'etudiant'");
+    $studentCount = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-    // Récupérer les examens en cours
-    $exams_query = "SELECT COUNT(*) as active_exams 
-        FROM exams 
-        WHERE status = 'published' 
-        AND DATE(exam_date) >= CURRENT_DATE()";
-    $stmt = $conn->query($exams_query);
-    $exams_stats = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM users WHERE role = 'enseignant'");
+    $teacherCount = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-    // Récupérer le nombre d'actions récentes (dernières 24h)
-    $actions_query = "SELECT COUNT(*) as recent_actions 
-        FROM notifications 
-        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)";
-    $stmt = $conn->query($actions_query);
-    $actions_stats = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $conn->query("SELECT COUNT(*) as total FROM users");
+    $totalUsers = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
-    // Récupérer les 5 dernières actions pour l'infobulle
-    $recent_actions_query = "SELECT n.title, n.created_at, u.firstname, u.lastname 
-        FROM notifications n
-        JOIN users u ON n.user_id = u.id
-        ORDER BY n.created_at DESC
-        LIMIT 5";
-    $stmt = $conn->query($recent_actions_query);
-    $recent_actions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    // Récupérer les détails des examens pour l'infobulle
-    $detailed_exams_query = "SELECT e.title, c.name as class_name, e.exam_date 
-        FROM exams e
-        JOIN classes c ON e.class_id = c.id
-        WHERE e.status = 'published' 
-        AND DATE(e.exam_date) >= CURRENT_DATE()
-        LIMIT 5";
-    $stmt = $conn->query($detailed_exams_query);
-    $detailed_exams = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    $error = "Connection failed: " . $e->getMessage();
+}
 ?>
+
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExamMaster - Administration</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Admin Dashboard - ExamMaster</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+        :root {
+            --primary-color: #4e73df;
+            --secondary-color: #858796;
+            --success-color: #1cc88a;
+            --info-color: #36b9cc;
+            --warning-color: #f6c23e;
+            --danger-color: #e74a3b;
         }
-
-        body {
-            background-color: #f3f4f6;
-            color: #1f2937;
-        }
-
-        .navbar {
-            background-color: #1e40af;
+        .sidebar {
+            height: 100vh;
+            background: #4e73df;
+            background: linear-gradient(180deg, #4e73df 10%, #224abe 100%);
             color: white;
-            padding: 1rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            padding-top: 20px;
+            z-index: 1;
         }
-
-        .navbar-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            background-color: #f8f9fc;
+            min-height: 100vh;
         }
-
-        .brand {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-
-        .logout-btn {
-            background-color: #dc2626;
-            color: white;
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 0.375rem;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .logout-btn:hover {
-            background-color: #b91c1c;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-
-        .welcome-card {
-            background-color: white;
-            border-radius: 0.5rem;
-            padding: 2rem;
-            text-align: center;
-            margin-bottom: 2rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .admin-icon {
-            width: 80px;
-            height: 80px;
-            background-color: #3b82f6;
-            border-radius: 50%;
-            margin: 0 auto 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 2rem;
-        }
-
-        .admin-name {
-            font-size: 1.5rem;
-            color: #1f2937;
-            margin-top: 1rem;
-        }
-
-        .tabs {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .admin-card {
-            background-color: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            text-align: center;
-            transition: transform 0.2s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        .sidebar-link {
+            color: rgba(255,255,255,.8);
             text-decoration: none;
-            color: #1f2937;
-        }
-
-        .admin-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .card-icon {
-            width: 50px;
-            height: 50px;
-            background-color: #3b82f6;
-            border-radius: 50%;
-            margin: 0 auto 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-        }
-
-        .card-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .card-description {
-            color: #6b7280;
-            font-size: 0.9rem;
-        }
-
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-top: 2rem;
-        }
-
-        .stat-card {
-            background-color: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            text-align: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            position: relative;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .stat-tooltip {
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #1f2937;
-            color: white;
-            padding: 1rem;
-            border-radius: 0.375rem;
-            width: 300px;
-            display: none;
-            z-index: 1000;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        .stat-card:hover .stat-tooltip {
+            padding: 15px 20px;
             display: block;
+            transition: 0.3s;
+            border-left: 3px solid transparent;
         }
-
-        .tooltip-item {
-            text-align: left;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #374151;
+        .sidebar-link:hover {
+            color: white;
+            background: rgba(255,255,255,.1);
+            border-left-color: white;
         }
-
-        .tooltip-item:last-child {
-            border-bottom: none;
+        .sidebar-link i {
+            margin-right: 10px;
         }
-
-        .tooltip-title {
-            font-weight: 500;
-            margin-bottom: 0.25rem;
+        .card-counter {
+            padding: 20px;
+            border-radius: 10px;
+            color: white;
+            transition: transform 0.3s;
+            cursor: pointer;
         }
-
-        .tooltip-meta {
-            font-size: 0.875rem;
-            color: #9ca3af;
+        .card-counter:hover {
+            transform: translateY(-3px);
         }
-
-        .stat-breakdown {
-            margin-top: 0.5rem;
-            font-size: 0.875rem;
-            color: #6b7280;
+        .card-counter i {
+            font-size: 4rem;
+            opacity: 0.3;
         }
-
-        .stat-icon {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            color: #3b82f6;
-        }
-
-        .stat-number {
-            font-size: 2rem;
+        .card-counter .count {
+            font-size: 26px;
             font-weight: bold;
-            color: #3b82f6;
-            margin-bottom: 0.5rem;
         }
-
-        .stat-label {
-            color: #6b7280;
+        .admin-header {
+            background: white;
+            padding: 15px 25px;
+            border-bottom: 1px solid #e3e6f0;
+            margin-bottom: 25px;
         }
-
-        @media (max-width: 768px) {
-            .tabs {
-                grid-template-columns: 1fr;
-            }
+        .recent-activity {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0,0,0,.1);
+        }
+        .divider {
+            border-left: 1px solid rgba(255,255,255,.15);
+            margin: 10px 0;
         }
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="navbar-content">
-            <div class="brand">ExamMaster</div>
-            <form method="POST" action="../auth/logout.php" style="display: inline;">
-                <button type="submit" name="logout" class="logout-btn">
-                    <i class="fas fa-sign-out-alt"></i> Déconnexion
-                </button>
-            </form>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="text-center mb-4">
+            <h4>ExamMaster</h4>
+            <small>Administration Panel</small>
         </div>
-    </nav>
-
-    <div class="container">
-        <!-- Carte de bienvenue -->
-        <div class="welcome-card">
-            <div class="admin-icon">
-                <i class="fas fa-user-shield"></i>
-            </div>
-            <h2 class="admin-name">Bienvenue <?php echo htmlspecialchars($user['firstname']); ?></h2>
-            <p>Administrateur</p>
-        </div>
-
-        <!-- Cartes d'actions -->
-        <div class="tabs">
-            <a href="attribuer_role.php" class="admin-card">
-                <div class="card-icon">
-                    <i class="fas fa-user-cog"></i>
-                </div>
-                <h3 class="card-title">Attribuer Role</h3>
-                <p class="card-description">Gérer les rôles des utilisateurs</p>
+        <div class="divider"></div>
+        <nav>
+            <a href="dashboard.php" class="sidebar-link active">
+                <i class='bx bxs-dashboard'></i> Dashboard
             </a>
-
-            <a href="statistique.php" class="admin-card">
-                <div class="card-icon">
-                    <i class="fas fa-chart-bar"></i>
-                </div>
-                <h3 class="card-title">Statistiques</h3>
-                <p class="card-description">Voir les statistiques du système</p>
+            <a href="manage_users.php" class="sidebar-link">
+                <i class='bx bxs-user-detail'></i> User Management
             </a>
-
-            <a href="gerer_compte.php" class="admin-card">
-                <div class="card-icon">
-                    <i class="fas fa-users-cog"></i>
-                </div>
-                <h3 class="card-title">Gérer Comptes</h3>
-                <p class="card-description">Administration des comptes</p>
+            <a href="statistics.php" class="sidebar-link">
+                <i class='bx bxs-chart'></i> Statistics
             </a>
-            <a href="approver_etudiant.php" class="admin-card">
-    <div class="card-icon">
-        <i class="fas fa-user-graduate"></i>
+            <a href="exams.php" class="sidebar-link">
+                <i class='bx bxs-book'></i> Exam Management
+            </a>
+            <div class="divider"></div>
+            <a href="../auth/logout.php" class="sidebar-link">
+                <i class='bx bx-log-out'></i> Logout
+            </a>
+        </nav>
     </div>
-    <h3 class="card-title">Gérer Inscriptions</h3>
-    <p class="card-description">Validation des inscriptions étudiantes</p>
-</a>
-            <a href="supprimer_compte.php" class="admin-card">
-    <div class="card-icon">
-        <i class="fas fa-user-minus"></i>
-    </div>
-    <h3 class="card-title">Supprimer ou Restaurer</h3>
-    <p class="card-description">Supprimer ou Restaurer des comptes utilisateurs</p>
-</a>
 
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="admin-header d-flex justify-content-between align-items-center">
+            <h4 class="m-0">Dashboard Overview</h4>
+            <div>
+                <span class="text-muted">Welcome, </span>
+                <span class="fw-bold"><?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
+            </div>
         </div>
 
-        <!-- Statistiques rapides -->
-        <div class="stats-container">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="stat-number">
-                    <?php echo $users_stats['total_users']; ?>
-                </div>
-                <div class="stat-label">Utilisateurs Actifs</div>
-                <div class="stat-breakdown">
-                    <?php echo $users_stats['students']; ?> Étudiants |
-                    <?php echo $users_stats['teachers']; ?> Enseignants
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-book"></i>
-                </div>
-                <div class="stat-number">
-                    <?php echo $exams_stats['active_exams']; ?>
-                </div>
-                <div class="stat-label">Examens en Cours</div>
-                <div class="stat-tooltip">
-                    <h4 style="margin-bottom: 0.5rem;">Détails des examens actifs</h4>
-                    <?php foreach($detailed_exams as $exam): ?>
-                        <div class="tooltip-item">
-                            <div class="tooltip-title"><?php echo htmlspecialchars($exam['title']); ?></div>
-                            <div class="tooltip-meta">
-                                Classe: <?php echo htmlspecialchars($exam['class_name']); ?><br>
-                                Date: <?php echo date('d/m/Y', strtotime($exam['exam_date'])); ?>
-                            </div>
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card-counter bg-primary h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Total Users</h6>
+                            <div class="count"><?php echo $totalUsers; ?></div>
                         </div>
-                    <?php endforeach; ?>
+                        <i class='bx bxs-group'></i>
+                    </div>
                 </div>
             </div>
-
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="stat-number">
-                    <?php echo $actions_stats['recent_actions']; ?>
-                </div>
-                <div class="stat-label">Actions Récentes</div>
-                <div class="stat-tooltip">
-                    <h4 style="margin-bottom: 0.5rem;">Dernières actions</h4>
-                    <?php foreach($recent_actions as $action): ?>
-                        <div class="tooltip-item">
-                            <div class="tooltip-title"><?php echo htmlspecialchars($action['title']); ?></div>
-                            <div class="tooltip-meta">
-                            <div class="tooltip-title"><?php echo htmlspecialchars($action['title']); ?></div>
-                            <div class="tooltip-meta">
-                                Par: <?php echo htmlspecialchars($action['firstname'] . ' ' . $action['lastname']); ?><br>
-                                Le: <?php echo date('d/m/Y H:i', strtotime($action['created_at'])); ?>
-                            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card-counter bg-success h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Students</h6>
+                            <div class="count"><?php echo $studentCount; ?></div>
                         </div>
-                    <?php endforeach; ?>
+                        <i class='bx bxs-graduation'></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card-counter bg-info h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Teachers</h6>
+                            <div class="count"><?php echo $teacherCount; ?></div>
+                        </div>
+                        <i class='bx bxs-chalkboard'></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card-counter bg-warning h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Active Exams</h6>
+                            <div class="count">--</div>
+                        </div>
+                        <i class='bx bxs-book-content'></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header bg-white">
+                        <h5 class="card-title m-0">Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <a href="users.php?action=add" class="btn btn-outline-primary">
+                                <i class='bx bx-user-plus'></i> Add New User
+                            </a>
+                            <a href="exams.php?action=create" class="btn btn-outline-success">
+                                <i class='bx bx-plus-circle'></i> Create New Exam
+                            </a>
+                            <a href="reports.php" class="btn btn-outline-info">
+                                <i class='bx bx-line-chart'></i> Generate Reports
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="recent-activity">
+                    <h5 class="mb-4">Recent Activity</h5>
+                    <div class="activity-item d-flex align-items-center mb-3">
+                        <i class='bx bxs-user-plus text-success me-3'></i>
+                        <div>New user registration</div>
+                        <small class="text-muted ms-auto">2 mins ago</small>
+                    </div>
+                    <div class="activity-item d-flex align-items-center mb-3">
+                        <i class='bx bxs-book-content text-primary me-3'></i>
+                        <div>New exam created</div>
+                        <small class="text-muted ms-auto">1 hour ago</small>
+                    </div>
+                    <div class="activity-item d-flex align-items-center">
+                        <i class='bx bxs-message-square-check text-info me-3'></i>
+                        <div>Exam results published</div>
+                        <small class="text-muted ms-auto">3 hours ago</small>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Rafraîchissement automatique des statistiques toutes les 5 minutes
-        setInterval(function() {
-            location.reload();
-        }, 5 * 60 * 1000);
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

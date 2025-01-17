@@ -1,326 +1,158 @@
 <?php
 session_start();
-require_once '../config/connection.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $firstname = trim($_POST['firstname']);
-    $lastname = trim($_POST['lastname']);
-    $email = trim($_POST['email']);
-    $password = trim($_POST['password']);
-    $confirm_password = trim($_POST['confirm_password']);
-    $error = '';
+$host = 'localhost';
+$dbname = 'exammaster';
+$user = 'root';
+$pass = '';
 
-    // Validation de base
-    if (empty($firstname) || empty($lastname) || empty($email) || empty($password) || empty($confirm_password)) {
-        $error = "Tous les champs sont obligatoires.";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = "Format d'email invalide.";
-    } elseif ($password !== $confirm_password) {
-        $error = "Les mots de passe ne correspondent pas.";
-    } elseif (strlen($password) < 8) {
-        $error = "Le mot de passe doit contenir au moins 8 caractères.";
-    } else {
-        try {
-            // Vérifier si l'email existe déjà
-            $stmt = $conn->prepare("SELECT id FROM users WHERE email = :email");
-            $stmt->bindParam(':email', $email, PDO::PARAM_STR);
-            $stmt->execute();
+try {
+    $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            if ($stmt->rowCount() > 0) {
-                $error = "Cet email est déjà utilisé.";
-            } else {
-                // Insérer le nouvel utilisateur avec le statut 'pending'
-                $stmt = $conn->prepare("INSERT INTO users (firstname, lastname, email, password, role, status) VALUES (:firstname, :lastname, :email, :password, 'Etudiant', 'pending')");
-                $stmt->bindParam(':firstname', $firstname, PDO::PARAM_STR);
-                $stmt->bindParam(':lastname', $lastname, PDO::PARAM_STR);
-                $stmt->bindParam(':email', $email, PDO::PARAM_STR);
-                $stmt->bindParam(':password', $password, PDO::PARAM_STR);
-                
-                if ($stmt->execute()) {
-                    $_SESSION['success_message'] = "Votre compte a été créé avec succès. Veuillez attendre l'approbation de l'administrateur.";
-                    header("Location: login.php");
-                    exit();
-                } else {
-                    $error = "Une erreur est survenue lors de l'inscription.";
-                }
-            }
-        } catch (PDOException $e) {
-            $error = "Erreur de base de données: " . $e->getMessage();
-        }
-    }
+    // Get all departments
+    $stmt = $conn->query("SELECT id, name FROM departments ORDER BY name");
+    $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get all classes
+    $stmt = $conn->query("SELECT id, name, department_id FROM classes ORDER BY name");
+    $classes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    error_log("Error loading departments and classes: " . $e->getMessage());
+    $departments = [];
+    $classes = [];
 }
-?>
 
+// Get any errors or form data from session
+$errors = $_SESSION['signup_errors'] ?? [];
+$form_data = $_SESSION['signup_form_data'] ?? [];
+
+// Clear session data
+unset($_SESSION['signup_errors'], $_SESSION['signup_form_data']);
+?>
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inscription - ExamMaster</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <title>Sign Up - ExamMaster</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
         body {
-            min-height: 100vh;
-            background-color: #f5f5f5;
-        }
-
-        .main-container {
-            display: flex;
-            min-height: 100vh;
-            background-color: white;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-section {
-            flex: 1;
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .welcome {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .welcome h1 {
-            color: #2C3E50;
-            font-size: 2.5em;
-            margin-bottom: 20px;
-            animation: fadeInDown 1s;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-            animation: fadeInUp 0.5s;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #2C3E50;
-            font-weight: 500;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e1e1e1;
-            border-radius: 8px;
-            font-size: 1em;
-            transition: border-color 0.3s ease;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-
-        .connect-button {
-            width: 100%;
-            padding: 15px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-top: 20px;
-            animation: fadeInUp 0.7s;
-        }
-
-        .connect-button:hover {
-            background-color: #2980b9;
-        }
-
-        .photo-container {
-            flex: 1;
             background-color: #f8f9fa;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
         }
-
-        .photo-frame {
-            max-width: 100%;
-            animation: fadeIn 1s;
-        }
-
-        .photo-frame img {
-            max-width: 100%;
-            height: auto;
-        }
-
-        .error {
-            background-color: #ff6b6b;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            animation: shake 0.5s;
-            text-align: center;
-        }
-
-        .success {
-            background-color: #51cf66;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            animation: fadeIn 0.5s;
-            text-align: center;
-        }
-
-        .login-link {
-            text-align: center;
-            margin-top: 20px;
-            color: #666;
-        }
-
-        .login-link a {
-            color: #3498db;
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-
-        .name-group {
-            display: flex;
-            gap: 20px;
-        }
-
-        .name-group .form-group {
-            flex: 1;
-        }
-
-        @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
-            }
-
-            .form-section {
-                padding: 20px;
-            }
-
-            .photo-container {
-                display: none;
-            }
-
-            .name-group {
-                flex-direction: column;
-                gap: 0;
-            }
-        }
-
-        .password-requirements {
-            font-size: 0.9em;
-            color: #666;
-            margin-top: 5px;
+        .signup-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
-    <div class="main-container">
-        <div class="form-section">
-            <div class="welcome">
-                <h1>Inscription à ExamMaster</h1>
-            </div>
+    <div class="container">
+        <div class="signup-container">
+            <h2 class="text-center mb-4">Sign Up</h2>
             
-            <?php if (isset($error)): ?>
-                <div class="error">
-                    <?php echo htmlspecialchars($error); ?>
+            <?php if (!empty($errors)): ?>
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        <?php foreach ($errors as $error): ?>
+                            <li><?php echo htmlspecialchars($error); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
                 </div>
             <?php endif; ?>
 
-            <form method="post" action="">
-                <div class="name-group">
-                    <div class="form-group">
-                        <label for="firstname">Prénom</label>
-                        <input 
-                            type="text" 
-                            id="firstname" 
-                            name="firstname" 
-                            value="<?php echo isset($_POST['firstname']) ? htmlspecialchars($_POST['firstname']) : ''; ?>"
-                            required
-                        >
+            <form action="process_signup.php" method="POST" id="signupForm">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="nom" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="nom" name="nom" value="<?php echo htmlspecialchars($form_data['nom'] ?? ''); ?>" required>
                     </div>
-                    <div class="form-group">
-                        <label for="lastname">Nom</label>
-                        <input 
-                            type="text" 
-                            id="lastname" 
-                            name="lastname" 
-                            value="<?php echo isset($_POST['lastname']) ? htmlspecialchars($_POST['lastname']) : ''; ?>"
-                            required
-                        >
+                    <div class="col-md-6 mb-3">
+                        <label for="prenom" class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="prenom" name="prenom" value="<?php echo htmlspecialchars($form_data['prenom'] ?? ''); ?>" required>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input 
-                        type="email" 
-                        id="email" 
-                        name="email" 
-                        placeholder="exemple@email.com"
-                        value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>"
-                        required
-                    >
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" value="<?php echo htmlspecialchars($form_data['email'] ?? ''); ?>" required>
                 </div>
 
-                <div class="form-group">
-                    <label for="password">Mot de passe</label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        placeholder="Minimum 8 caractères"
-                        required
-                    >
-                    <div class="password-requirements">
-                        Le mot de passe doit contenir au moins 8 caractères
-                    </div>
+                <div class="mb-3">
+                    <label for="role" class="form-label">Role</label>
+                    <select class="form-select" id="role" name="role" required>
+                        <option value="">Select Role</option>
+                        <option value="etudiant" <?php echo (($form_data['role'] ?? '') === 'etudiant') ? 'selected' : ''; ?>>Student</option>
+                        <option value="enseignant" <?php echo (($form_data['role'] ?? '') === 'enseignant') ? 'selected' : ''; ?>>Teacher</option>
+                        <option value="admin" <?php echo (($form_data['role'] ?? '') === 'admin') ? 'selected' : ''; ?>>Administrator</option>
+                    </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="confirm_password">Confirmer le mot de passe</label>
-                    <input 
-                        type="password" 
-                        id="confirm_password" 
-                        name="confirm_password" 
-                        placeholder="Confirmez votre mot de passe"
-                        required
-                    >
+                <div class="mb-3 student-field" style="display: none;">
+                    <label for="class_id" class="form-label">Class</label>
+                    <select class="form-select" id="class_id" name="class_id">
+                        <option value="">Select Class</option>
+                        <?php foreach ($classes as $class): ?>
+                            <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
 
-                <button type="submit" class="connect-button">S'inscrire</button>
+                <div class="mb-3 teacher-field" style="display: none;">
+                    <label for="department_id" class="form-label">Department</label>
+                    <select class="form-select" id="department_id" name="department_id">
+                        <option value="">Select Department</option>
+                        <?php foreach ($departments as $dept): ?>
+                            <option value="<?php echo $dept['id']; ?>"><?php echo htmlspecialchars($dept['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
 
-                <div class="login-link">
-                    Déjà inscrit? <a href="login.php">Se connecter</a>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="confirm_password" class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">Sign Up</button>
+                    <a href="login.php" class="btn btn-link text-center">Already have an account? Login</a>
                 </div>
             </form>
         </div>
-
-        <div class="photo-container">
-            <div class="photo-frame">
-                <img src="../assets/images/examination_tools 1.png" alt="Student Reading">
-            </div>
-        </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('role').addEventListener('change', function() {
+            const studentFields = document.querySelectorAll('.student-field');
+            const teacherFields = document.querySelectorAll('.teacher-field');
+            
+            if (this.value === 'etudiant') {
+                studentFields.forEach(field => field.style.display = 'block');
+                teacherFields.forEach(field => field.style.display = 'none');
+            } else if (this.value === 'enseignant') {
+                studentFields.forEach(field => field.style.display = 'none');
+                teacherFields.forEach(field => field.style.display = 'block');
+            } else {
+                studentFields.forEach(field => field.style.display = 'none');
+                teacherFields.forEach(field => field.style.display = 'none');
+            }
+        });
+
+        // Trigger the change event on page load if a role is selected
+        if (document.getElementById('role').value) {
+            document.getElementById('role').dispatchEvent(new Event('change'));
+        }
+    </script>
 </body>
 </html>

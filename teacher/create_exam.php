@@ -9,12 +9,13 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'enseignant') {
 }
 
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
 $success_message = '';
 $error_message = '';
+$conn = null; // Initialize connection variable
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -148,7 +149,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -239,13 +239,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php echo $success_message; ?>
                 </div>
             <?php endif; ?>
-
+            
             <?php if ($error_message): ?>
                 <div class="alert alert-danger">
                     <?php echo $error_message; ?>
                 </div>
             <?php endif; ?>
-
+            
             <form id="examForm" method="POST" action="" enctype="multipart/form-data">
                 <!-- Exam Details -->
                 <div class="card mb-4">

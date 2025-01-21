@@ -4,9 +4,12 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
+
+// Include the db_utils file
+require_once '../config/db_utils.php';
 
 try {
     $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
@@ -41,18 +44,32 @@ try {
 
         if ($user) {
             if (password_verify($password, $user['password'])) {
-                if ($user['status'] === 'inactive') {
-                    $_SESSION['login_error'] = "Your account is pending approval. Please wait for admin approval.";
+                // Check if approval-related columns exist
+                $is_approved = true;
+                try {
+                    // Use the columnExists function from config.php
+                    if (columnExists($conn, 'users', 'is_approved')) {
+                        $is_approved = $user['is_approved'] == 1;
+                    } elseif (columnExists($conn, 'users', 'status')) {
+                        $is_approved = $user['status'] === 'active';
+                    } else {
+                        // If no approval-related column exists, log an error
+                        error_log("No approval column found in users table");
+                    }
+                } catch(PDOException $e) {
+                    error_log("Error checking user approval: " . $e->getMessage());
+                    $is_approved = false;
+                }
+
+                if (!$is_approved) {
+                    $_SESSION['login_error'] = "Your account is pending admin approval. Please wait.";
                 } else if ($user['status'] === 'deleted') {
                     $_SESSION['login_error'] = "This account has been deleted. Please contact administrator.";
-                } else if ($user['status'] === 'active') {
+                } else {
                     // Login successful
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_role'] = $user['role'];
                     $_SESSION['user_name'] = $user['prenom'] . ' ' . $user['nom'];
-
-                    // Debug info
-                    error_log("Login successful - Role: " . $user['role']);
 
                     // Redirect based on role
                     switch ($user['role']) {
@@ -72,11 +89,11 @@ try {
                 }
             } else {
                 $_SESSION['login_error'] = "Invalid email or password";
-                error_log("Password verification failed");
+                error_log("Login failed: Password verification failed for email " . $email);
             }
         } else {
             $_SESSION['login_error'] = "Invalid email or password";
-            error_log("User not found");
+            error_log("Login failed: User not found for email " . $email);
         }
 
         if (isset($_SESSION['login_error'])) {

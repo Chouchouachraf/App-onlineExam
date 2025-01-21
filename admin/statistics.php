@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
 
 // Database connection
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
@@ -20,26 +20,26 @@ try {
 
     // Get user statistics
     $stmt = $conn->query("SELECT role, COUNT(*) as count FROM users GROUP BY role");
-    $roleStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $userStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Get user status statistics
     $stmt = $conn->query("SELECT status, COUNT(*) as count FROM users GROUP BY status");
     $statusStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Get monthly user registrations for the past 12 months
+    // Get recent registrations (last 7 days)
     $stmt = $conn->query("
-        SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count 
+        SELECT DATE(created_at) as date, COUNT(*) as count 
         FROM users 
-        WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-        GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-        ORDER BY month ASC
+        WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
     ");
-    $monthlyStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $recentRegistrations = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 } catch(PDOException $e) {
-    $_SESSION['error'] = "Database error: " . $e->getMessage();
+    $error = "Connection failed: " . $e->getMessage();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -50,7 +50,6 @@ try {
     <link href="https://cdn.jsdelivr.net/npm/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* Include the same sidebar styles as dashboard.php */
         .sidebar {
             height: 100vh;
             background: #4e73df;
@@ -65,48 +64,123 @@ try {
         .main-content {
             margin-left: 250px;
             padding: 20px;
+            background-color: #f8f9fc;
+            min-height: 100vh;
+        }
+        .sidebar-link {
+            color: rgba(255,255,255,.8);
+            text-decoration: none;
+            padding: 15px 20px;
+            display: block;
+            transition: 0.3s;
+            border-left: 3px solid transparent;
+        }
+        .sidebar-link:hover {
+            color: white;
+            background: rgba(255,255,255,.1);
+            border-left-color: white;
+        }
+        .sidebar-link i {
+            margin-right: 10px;
+        }
+        .divider {
+            border-top: 1px solid rgba(255,255,255,.15);
+            margin: 10px 0;
+        }
+        .stats-card {
+            border-radius: 10px;
+            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+            transition: transform 0.3s;
+        }
+        .stats-card:hover {
+            transform: translateY(-3px);
         }
         .chart-container {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 0 15px rgba(0,0,0,.1);
+            position: relative;
+            margin: auto;
+            height: 300px;
         }
     </style>
 </head>
 <body>
-    <!-- Include the same sidebar as dashboard.php -->
+    <!-- Sidebar -->
     <div class="sidebar">
-        <!-- Same sidebar content as dashboard.php -->
+        <div class="text-center mb-4">
+            <h4>ExamMaster</h4>
+            <small>Administration Panel</small>
+        </div>
+        <div class="divider"></div>
+        <nav>
+            <a href="dashboard.php" class="sidebar-link">
+                <i class='bx bxs-dashboard'></i> Dashboard
+            </a>
+            <a href="manage_users.php" class="sidebar-link">
+                <i class='bx bxs-user-detail'></i> User Management
+            </a>
+            <a href="statistics.php" class="sidebar-link active">
+                <i class='bx bxs-chart'></i> Statistics
+            </a>
+            <div class="divider"></div>
+            <a href="../auth/logout.php" class="sidebar-link">
+                <i class='bx bx-log-out'></i> Logout
+            </a>
+        </nav>
     </div>
 
+    <!-- Main Content -->
     <div class="main-content">
         <div class="container-fluid">
-            <h2 class="mb-4">System Statistics</h2>
+            <!-- Header with Return Button -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>System Statistics</h2>
+                <a href="dashboard.php" class="btn btn-secondary">
+                    <i class='bx bxs-dashboard'></i> Return to Dashboard
+                </a>
+            </div>
 
+            <!-- Statistics Cards -->
+            <div class="row mb-4">
+                <!-- User Distribution -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card stats-card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">User Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="userDistributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Status -->
+                <div class="col-lg-6 mb-4">
+                    <div class="card stats-card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="card-title mb-0">User Status Distribution</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="userStatusChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Registrations -->
             <div class="row">
-                <!-- User Roles Chart -->
-                <div class="col-md-6 mb-4">
-                    <div class="chart-container">
-                        <h5>User Distribution by Role</h5>
-                        <canvas id="roleChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- User Status Chart -->
-                <div class="col-md-6 mb-4">
-                    <div class="chart-container">
-                        <h5>User Status Distribution</h5>
-                        <canvas id="statusChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Monthly Registrations Chart -->
                 <div class="col-12">
-                    <div class="chart-container">
-                        <h5>Monthly User Registrations</h5>
-                        <canvas id="registrationChart"></canvas>
+                    <div class="card stats-card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="card-title mb-0">Recent Registrations (Last 7 Days)</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="registrationTrendChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -115,18 +189,24 @@ try {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Role Distribution Chart
-        new Chart(document.getElementById('roleChart'), {
+        // User Distribution Chart
+        const userDistributionCtx = document.getElementById('userDistributionChart').getContext('2d');
+        new Chart(userDistributionCtx, {
             type: 'pie',
             data: {
-                labels: <?php echo json_encode(array_column($roleStats, 'role')); ?>,
+                labels: <?php echo json_encode(array_column($userStats, 'role')); ?>,
                 datasets: [{
-                    data: <?php echo json_encode(array_column($roleStats, 'count')); ?>,
-                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc'],
+                    data: <?php echo json_encode(array_column($userStats, 'count')); ?>,
+                    backgroundColor: [
+                        '#4e73df',
+                        '#1cc88a',
+                        '#36b9cc'
+                    ]
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         position: 'bottom'
@@ -135,18 +215,24 @@ try {
             }
         });
 
-        // Status Distribution Chart
-        new Chart(document.getElementById('statusChart'), {
+        // User Status Chart
+        const userStatusCtx = document.getElementById('userStatusChart').getContext('2d');
+        new Chart(userStatusCtx, {
             type: 'doughnut',
             data: {
                 labels: <?php echo json_encode(array_column($statusStats, 'status')); ?>,
                 datasets: [{
                     data: <?php echo json_encode(array_column($statusStats, 'count')); ?>,
-                    backgroundColor: ['#1cc88a', '#f6c23e', '#e74a3b'],
+                    backgroundColor: [
+                        '#1cc88a',
+                        '#f6c23e',
+                        '#e74a3b'
+                    ]
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         position: 'bottom'
@@ -155,33 +241,35 @@ try {
             }
         });
 
-        // Monthly Registrations Chart
-        new Chart(document.getElementById('registrationChart'), {
+        // Registration Trend Chart
+        const registrationTrendCtx = document.getElementById('registrationTrendChart').getContext('2d');
+        new Chart(registrationTrendCtx, {
             type: 'line',
             data: {
-                labels: <?php echo json_encode(array_column($monthlyStats, 'month')); ?>,
+                labels: <?php echo json_encode(array_column($recentRegistrations, 'date')); ?>,
                 datasets: [{
-                    label: 'New Users',
-                    data: <?php echo json_encode(array_column($monthlyStats, 'count')); ?>,
+                    label: 'New Registrations',
+                    data: <?php echo json_encode(array_column($recentRegistrations, 'count')); ?>,
                     borderColor: '#4e73df',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
                     tension: 0.1,
-                    fill: true,
-                    backgroundColor: 'rgba(78, 115, 223, 0.1)'
+                    fill: true
                 }]
             },
             options: {
                 responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                },
+                maintainAspectRatio: false,
                 scales: {
                     y: {
                         beginAtZero: true,
                         ticks: {
                             stepSize: 1
                         }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
                     }
                 }
             }

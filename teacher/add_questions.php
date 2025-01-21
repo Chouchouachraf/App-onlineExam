@@ -16,7 +16,7 @@ if (!isset($_GET['exam_id'])) {
 
 $exam_id = $_GET['exam_id'];
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
@@ -69,7 +69,6 @@ try {
             if ($question_type === 'mcq') {
                 $options = $_POST['options'];
                 $correct_option = $_POST['correct_option'];
-
                 foreach ($options as $index => $option_text) {
                     if (trim($option_text) !== '') {
                         $stmt = $conn->prepare("
@@ -129,7 +128,6 @@ try {
     die("Connection failed: " . $e->getMessage());
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -209,13 +207,13 @@ try {
                     <?php echo $success_message; ?>
                 </div>
             <?php endif; ?>
-
+            
             <?php if (isset($error_message)): ?>
                 <div class="alert alert-danger">
                     <?php echo $error_message; ?>
                 </div>
             <?php endif; ?>
-
+            
             <!-- Add Question Form -->
             <div class="card mb-4">
                 <div class="card-body">
@@ -299,7 +297,7 @@ try {
                     <?php if ($question['image_path']): ?>
                         <img src="<?php echo htmlspecialchars($question['image_path']); ?>" class="question-image" alt="Question Image">
                     <?php endif; ?>
-
+                    
                     <?php if ($question['question_type'] === 'mcq'): ?>
                         <div class="options-list mt-2">
                             <?php 

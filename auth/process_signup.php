@@ -2,9 +2,12 @@
 session_start();
 
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
+
+// Include the db_utils file
+require_once '../config/db_utils.php';
 
 try {
     $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
@@ -17,7 +20,6 @@ try {
         $email = trim($_POST['email']);
         $password = $_POST['password'];
         $confirm_password = $_POST['confirm_password'];
-        $role = trim($_POST['role']);
 
         // Validate input
         $errors = [];
@@ -29,8 +31,6 @@ try {
         if (empty($password)) $errors[] = "Password is required";
         if ($password !== $confirm_password) $errors[] = "Passwords do not match";
         if (strlen($password) < 6) $errors[] = "Password must be at least 6 characters long";
-        if (empty($role)) $errors[] = "Role is required";
-        if (!in_array($role, ['etudiant', 'enseignant', 'admin'])) $errors[] = "Invalid role selected";
 
         // Check if email already exists
         $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
@@ -53,36 +53,70 @@ try {
             try {
                 $conn->beginTransaction();
 
-                // Get class and department IDs if provided
-                $class_id = !empty($_POST['class_id']) ? $_POST['class_id'] : null;
-                $department_id = !empty($_POST['department_id']) ? $_POST['department_id'] : null;
+                // Check if approval-related columns exist
+                $insert_query = "";
+                $params = [$nom, $prenom, $email, $hashed_password];
 
-                // For students, class is required
-                if ($role === 'etudiant' && empty($class_id)) {
-                    $errors[] = "Class selection is required for students";
-                }
+                try {
+                    // Add role column check and insertion
+                    if (columnExists($conn, 'users', 'role')) {
+                        $insert_query = "INSERT INTO users (nom, prenom, email, password, role, is_approved) VALUES (?, ?, ?, ?, ?, ?)";
+                        $params = [
+                            $nom, 
+                            $prenom, 
+                            $email, 
+                            $hashed_password, 
+                            'etudiant', 
+                            0
+                        ];
+                    } elseif (columnExists($conn, 'users', 'is_approved')) {
+                        $insert_query = "INSERT INTO users (nom, prenom, email, password, is_approved) VALUES (?, ?, ?, ?, ?)";
+                        $params = [
+                            $nom, 
+                            $prenom, 
+                            $email, 
+                            $hashed_password, 
+                            0
+                        ];
+                    } elseif (columnExists($conn, 'users', 'status')) {
+                        $insert_query = "INSERT INTO users (nom, prenom, email, password, status) VALUES (?, ?, ?, ?, ?)";
+                        $params = [
+                            $nom, 
+                            $prenom, 
+                            $email, 
+                            $hashed_password, 
+                            'inactive'
+                        ];
+                    } else {
+                        // If no approval-related column exists, log an error
+                        error_log("No approval column found in users table");
+                        throw new PDOException("Cannot insert user: no approval column");
+                    }
 
-                // For teachers, department is required
-                if ($role === 'enseignant' && empty($department_id)) {
-                    $errors[] = "Department selection is required for teachers";
-                }
+                    // Prepare and execute the insert statement
+                    $stmt = $conn->prepare($insert_query);
+                    $result = $stmt->execute($params);
 
-                if (empty($errors)) {
-                    // Insert user
-                    $stmt = $conn->prepare("
-                        INSERT INTO users (email, password, nom, prenom, role, class_id, department_id, status) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 'active')
-                    ");
-                    $stmt->execute([$email, $hashed_password, $nom, $prenom, $role, $class_id, $department_id]);
-
-                    $conn->commit();
-                    $_SESSION['signup_success'] = true;
-                    header("Location: signup_success.php");
-                    exit();
+                    if ($result) {
+                        $conn->commit();
+                        $_SESSION['signup_message'] = "Account created successfully. Waiting for admin approval.";
+                        header("Location: signup_success.php");
+                        exit();
+                    } else {
+                        $conn->rollBack();
+                        $_SESSION['signup_errors'] = ["Error creating account. Please try again."];
+                        header("Location: signup.php");
+                        exit();
+                    }
+                } catch(PDOException $e) {
+                    $conn->rollBack();
+                    $errors[] = "Database error: " . $e->getMessage();
+                    error_log("Signup Error: " . $e->getMessage());
                 }
             } catch (PDOException $e) {
                 $conn->rollBack();
                 $errors[] = "Database error: " . $e->getMessage();
+                error_log("Signup Error: " . $e->getMessage());
             }
         }
 
@@ -91,8 +125,7 @@ try {
             $_SESSION['signup_form_data'] = [
                 'nom' => $nom,
                 'prenom' => $prenom,
-                'email' => $email,
-                'role' => $role
+                'email' => $email
             ];
             header("Location: signup.php");
             exit();

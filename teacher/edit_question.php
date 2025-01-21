@@ -16,7 +16,7 @@ if (!isset($_GET['id'])) {
 
 $question_id = $_GET['id'];
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
@@ -67,7 +67,6 @@ try {
                 // Add new options
                 $options = $_POST['options'];
                 $correct_option = $_POST['correct_option'];
-
                 foreach ($options as $index => $option_text) {
                     if (trim($option_text) !== '') {
                         $stmt = $conn->prepare("
@@ -134,7 +133,6 @@ try {
     die("Connection failed: " . $e->getMessage());
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -204,18 +202,18 @@ try {
                     <?php echo $success_message; ?>
                 </div>
             <?php endif; ?>
-
+            
             <?php if (isset($error_message)): ?>
                 <div class="alert alert-danger">
                     <?php echo $error_message; ?>
                 </div>
             <?php endif; ?>
-
+            
             <div class="card">
                 <div class="card-body">
                     <form method="POST" action="" enctype="multipart/form-data">
                         <input type="hidden" name="question_type" value="<?php echo $question['question_type']; ?>">
-
+                        
                         <div class="mb-3">
                             <label for="question_text" class="form-label">Question Text</label>
                             <textarea class="form-control" id="question_text" name="question_text" rows="3" required><?php echo htmlspecialchars($question['question_text']); ?></textarea>
@@ -290,7 +288,7 @@ try {
                                 </div>
                             </div>
                         <?php endif; ?>
-
+                        
                         <div class="d-flex justify-content-between">
                             <button type="submit" class="btn btn-primary">Update Question</button>
                             <a href="add_questions.php?exam_id=<?php echo $question['exam_id']; ?>" class="btn btn-secondary">Back to Questions</a>

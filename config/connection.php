@@ -1,6 +1,6 @@
 <?php
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schema';
 $user = 'root';
 $password = '';
 

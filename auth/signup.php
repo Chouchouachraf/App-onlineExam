@@ -84,33 +84,7 @@ unset($_SESSION['signup_errors'], $_SESSION['signup_form_data']);
                 </div>
 
                 <div class="mb-3">
-                    <label for="role" class="form-label">Role</label>
-                    <select class="form-select" id="role" name="role" required>
-                        <option value="">Select Role</option>
-                        <option value="etudiant" <?php echo (($form_data['role'] ?? '') === 'etudiant') ? 'selected' : ''; ?>>Student</option>
-                        <option value="enseignant" <?php echo (($form_data['role'] ?? '') === 'enseignant') ? 'selected' : ''; ?>>Teacher</option>
-                        <option value="admin" <?php echo (($form_data['role'] ?? '') === 'admin') ? 'selected' : ''; ?>>Administrator</option>
-                    </select>
-                </div>
-
-                <div class="mb-3 student-field" style="display: none;">
-                    <label for="class_id" class="form-label">Class</label>
-                    <select class="form-select" id="class_id" name="class_id">
-                        <option value="">Select Class</option>
-                        <?php foreach ($classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="mb-3 teacher-field" style="display: none;">
-                    <label for="department_id" class="form-label">Department</label>
-                    <select class="form-select" id="department_id" name="department_id">
-                        <option value="">Select Department</option>
-                        <?php foreach ($departments as $dept): ?>
-                            <option value="<?php echo $dept['id']; ?>"><?php echo htmlspecialchars($dept['name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <input type="hidden" id="role" name="role" value="etudiant">
                 </div>
 
                 <div class="mb-3">
@@ -132,27 +106,5 @@ unset($_SESSION['signup_errors'], $_SESSION['signup_form_data']);
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.getElementById('role').addEventListener('change', function() {
-            const studentFields = document.querySelectorAll('.student-field');
-            const teacherFields = document.querySelectorAll('.teacher-field');
-            
-            if (this.value === 'etudiant') {
-                studentFields.forEach(field => field.style.display = 'block');
-                teacherFields.forEach(field => field.style.display = 'none');
-            } else if (this.value === 'enseignant') {
-                studentFields.forEach(field => field.style.display = 'none');
-                teacherFields.forEach(field => field.style.display = 'block');
-            } else {
-                studentFields.forEach(field => field.style.display = 'none');
-                teacherFields.forEach(field => field.style.display = 'none');
-            }
-        });
-
-        // Trigger the change event on page load if a role is selected
-        if (document.getElementById('role').value) {
-            document.getElementById('role').dispatchEvent(new Event('change'));
-        }
-    </script>
 </body>
 </html>

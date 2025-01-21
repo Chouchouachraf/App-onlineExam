@@ -9,11 +9,11 @@ try {
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Create database if it doesn't exist
-    $conn->exec("CREATE DATABASE IF NOT EXISTS exammaster");
-    echo "Database 'exammaster' created or already exists<br>";
+    $conn->exec("CREATE DATABASE IF NOT EXISTS schemase");
+    echo "Database 'schemase' created or already exists<br>";
     
     // Select the database
-    $conn->exec("USE exammaster");
+    $conn->exec("USE schemase");
     
     // Create users table
     $sql = "CREATE TABLE IF NOT EXISTS users (

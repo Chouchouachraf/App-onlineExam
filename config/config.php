@@ -1,11 +1,18 @@
 <?php
-session_start();
+// Check if session is already started
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Database configuration
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'exammaster');
+define('DB_NAME', 'schemase');
+
+// Error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 // URL Root
 $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
@@ -16,6 +23,7 @@ try {
     $conn = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 } catch(PDOException $e) {
+    error_log("Database Connection Error: " . $e->getMessage());
     die("Connection failed: " . $e->getMessage());
 }
 
@@ -90,6 +98,35 @@ function loginUser($email, $password, $role = '') {
         return ['success' => false, 'message' => 'Une erreur est survenue. Veuillez réessayer.'];
     }
 }
+
+// Function to safely check if a column exists
+function columnExists($conn, $table, $column) {
+    try {
+        $stmt = $conn->query("SHOW COLUMNS FROM $table LIKE '$column'");
+        return $stmt->fetch() !== false;
+    } catch(PDOException $e) {
+        error_log("Column Check Error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// Function to add a column safely
+function addColumnIfNotExists($conn, $table, $column, $definition) {
+    if (!columnExists($conn, $table, $column)) {
+        try {
+            $conn->exec("ALTER TABLE $table ADD COLUMN $column $definition");
+            error_log("Added column $column to $table");
+            return true;
+        } catch(PDOException $e) {
+            error_log("Error adding column $column: " . $e->getMessage());
+            return false;
+        }
+    }
+    return false;
+}
+
+// Attempt to add is_approved column if it doesn't exist
+addColumnIfNotExists($conn, 'users', 'is_approved', 'TINYINT(1) DEFAULT 0');
 
 // Include helper functions
 require_once __DIR__ . '/functions.php';

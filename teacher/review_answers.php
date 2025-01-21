@@ -16,7 +16,7 @@ if (!isset($_GET['exam_id'])) {
 
 $exam_id = $_GET['exam_id'];
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
@@ -32,7 +32,6 @@ try {
             foreach ($_POST['grades'] as $answer_id => $data) {
                 $points = $data['points'];
                 $feedback = $data['feedback'];
-
                 $stmt = $conn->prepare("
                     UPDATE student_answers 
                     SET points_earned = ?,
@@ -122,7 +121,6 @@ try {
     die("Connection failed: " . $e->getMessage());
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -206,7 +204,7 @@ try {
             <?php if (isset($error_message)): ?>
                 <div class="alert alert-danger"><?php echo $error_message; ?></div>
             <?php endif; ?>
-
+            
             <div class="card mb-4">
                 <div class="card-body">
                     <h5 class="card-title">Exam Details</h5>

@@ -6,7 +6,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'enseignant') {
 }
 
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
@@ -47,7 +47,6 @@ try {
     $error_message = "An error occurred while loading the dashboard. Please try again later.";
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -164,7 +163,6 @@ try {
                     <?php echo $error_message; ?>
                 </div>
             <?php endif; ?>
-
             <!-- Stats Cards -->
             <div class="row mb-4">
                 <div class="col-xl-3 col-md-6">

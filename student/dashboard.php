@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'etudiant') {
 }
 
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
@@ -133,7 +133,6 @@ try {
     $error_message = "Database error: " . $e->getMessage();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -268,7 +267,6 @@ try {
                     <?php echo $error_message; ?>
                 </div>
             <?php endif; ?>
-
             <!-- Welcome Section -->
             <div class="welcome-section">
                 <div class="row align-items-center">

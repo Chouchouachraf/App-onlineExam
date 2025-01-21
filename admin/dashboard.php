@@ -1,5 +1,5 @@
 <?php
-session_start();
+require_once '../config/config.php';
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
@@ -8,14 +8,11 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     exit();
 }
 
-// Database connection
-$host = 'localhost';
-$dbname = 'exammaster';
-$user = 'root';
-$pass = '';
+// Reuse the existing $conn from config.php
+$error = null;
 
 try {
-    $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
+    // Verify database connection
     $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     // Get total counts for dashboard
@@ -28,11 +25,31 @@ try {
     $stmt = $conn->query("SELECT COUNT(*) as total FROM users");
     $totalUsers = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
 
+    // Get unapproved users count
+    $unapprovedUsersCount = 0;
+    try {
+        // Use the columnExists function from config.php
+        if (columnExists($conn, 'users', 'is_approved')) {
+            $stmt = $conn->query("SELECT COUNT(*) as total FROM users WHERE is_approved = 0");
+            $unapprovedUsersCount = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        } elseif (columnExists($conn, 'users', 'status')) {
+            $stmt = $conn->query("SELECT COUNT(*) as total FROM users WHERE status = 'inactive'");
+            $unapprovedUsersCount = $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        } else {
+            // If no approval-related column exists, log an error
+            error_log("No approval column found in users table");
+        }
+    } catch(PDOException $e) {
+        // Log the error but don't stop execution
+        error_log("Error fetching unapproved users: " . $e->getMessage());
+        $unapprovedUsersCount = 0;
+    }
+
 } catch(PDOException $e) {
     $error = "Connection failed: " . $e->getMessage();
+    error_log($error);
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -135,11 +152,14 @@ try {
             <a href="manage_users.php" class="sidebar-link">
                 <i class='bx bxs-user-detail'></i> User Management
             </a>
+            <a href="manage_user_approvals.php" class="sidebar-link">
+                <i class='bx bxs-user-check'></i> User Approvals
+                <?php if($unapprovedUsersCount !== null && $unapprovedUsersCount > 0) { ?>
+                    <span class="badge bg-danger ms-2"><?php echo htmlspecialchars($unapprovedUsersCount); ?></span>
+                <?php } ?>
+            </a>
             <a href="statistics.php" class="sidebar-link">
                 <i class='bx bxs-chart'></i> Statistics
-            </a>
-            <a href="exams.php" class="sidebar-link">
-                <i class='bx bxs-book'></i> Exam Management
             </a>
             <div class="divider"></div>
             <a href="../auth/logout.php" class="sidebar-link">
@@ -204,6 +224,17 @@ try {
                     </div>
                 </div>
             </div>
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card-counter bg-danger h-100">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1">Pending Approvals</h6>
+                            <div class="count"><?php if($unapprovedUsersCount !== null) { echo $unapprovedUsersCount; } else { echo 0; } ?></div>
+                        </div>
+                        <i class='bx bxs-user-x'></i>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Quick Actions -->
@@ -214,17 +245,12 @@ try {
                         <h5 class="card-title m-0">Quick Actions</h5>
                     </div>
                     <div class="card-body">
-                        <div class="d-grid gap-2">
-                            <a href="users.php?action=add" class="btn btn-outline-primary">
-                                <i class='bx bx-user-plus'></i> Add New User
-                            </a>
-                            <a href="exams.php?action=create" class="btn btn-outline-success">
-                                <i class='bx bx-plus-circle'></i> Create New Exam
-                            </a>
-                            <a href="reports.php" class="btn btn-outline-info">
-                                <i class='bx bx-line-chart'></i> Generate Reports
-                            </a>
-                        </div>
+                        <a href="add_user.php" class="btn btn-primary w-100 mb-3">
+                            <i class='bx bx-user-plus'></i> Add New User
+                        </a>
+                        <a href="reports.php" class="btn btn-info w-100 text-white">
+                            <i class='bx bx-line-chart'></i> Generate Reports
+                        </a>
                     </div>
                 </div>
             </div>

@@ -16,7 +16,7 @@ if (!isset($_GET['exam_id'])) {
 
 $exam_id = $_GET['exam_id'];
 $host = 'localhost';
-$dbname = 'exammaster';
+$dbname = 'schemase';
 $user = 'root';
 $pass = '';
 
@@ -62,7 +62,6 @@ try {
     $error_message = "Database error: " . $e->getMessage();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -119,7 +118,7 @@ try {
             <?php if (isset($error_message)): ?>
                 <div class="alert alert-danger"><?php echo $error_message; ?></div>
             <?php endif; ?>
-
+            
             <div class="row">
                 <div class="col-md-12 mb-4">
                     <div class="card">
@@ -157,7 +156,7 @@ try {
                         </div>
                     </div>
                 <?php endforeach; ?>
-
+                
                 <?php if (empty($submissions)): ?>
                     <div class="col-12">
                         <div class="alert alert-info">

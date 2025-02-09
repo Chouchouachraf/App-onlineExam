@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once '../config/connection.php';
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
@@ -8,16 +9,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     exit();
 }
 
-// Database connection
-$host = 'localhost';
-$dbname = 'schemase';
-$user = 'root';
-$pass = '';
-
 try {
-    $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
     // Handle user actions
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_POST['action'])) {
@@ -70,6 +62,7 @@ try {
 
 } catch(PDOException $e) {
     $_SESSION['error'] = "Database error: " . $e->getMessage();
+    $users = []; // Initialize empty array to prevent undefined variable error
 }
 ?>
 <!DOCTYPE html>

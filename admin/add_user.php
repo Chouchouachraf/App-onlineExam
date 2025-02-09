@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
 
 // Database connection
 $host = 'localhost';
-$dbname = 'schemase';
+$dbname = 'exammaster';
 $user = 'root';
 $pass = '';
 

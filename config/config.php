@@ -8,7 +8,7 @@ if (session_status() == PHP_SESSION_NONE) {
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'schemase');
+define('DB_NAME', 'exammaster');
 
 // Error reporting
 error_reporting(E_ALL);

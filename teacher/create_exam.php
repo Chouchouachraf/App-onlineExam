@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once '../config/connection.php';
 
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'enseignant') {
@@ -8,29 +9,36 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'enseignant') {
     exit();
 }
 
-$host = 'localhost';
-$dbname = 'schemase';
-$user = 'root';
-$pass = '';
-
 $success_message = '';
 $error_message = '';
-$conn = null; // Initialize connection variable
+
+// Get teacher's classrooms
+try {
+    $stmt = $conn->prepare("
+        SELECT c.* 
+        FROM classrooms c 
+        WHERE c.teacher_id = ?
+        ORDER BY c.name
+    ");
+    $stmt->execute([$_SESSION['user_id']]);
+    $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch(PDOException $e) {
+    $error_message = "Error fetching classrooms: " . $e->getMessage();
+    $classrooms = [];
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
-        $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
         $title = $_POST['title'];
         $description = $_POST['description'];
         $duration = $_POST['duration'];
         $start_date = $_POST['start_date'];
         $end_date = $_POST['end_date'];
-        $class_id = $_POST['class_id'] ?? null;
-        $subject_id = $_POST['subject_id'] ?? null;
+        $subject = $_POST['subject'];
+        $total_marks = $_POST['total_marks'];
         $passing_score = $_POST['passing_score'] ?? 60;
+        $classroom_ids = $_POST['classroom_ids'] ?? [];
 
         // Begin transaction
         $conn->beginTransaction();
@@ -43,9 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 duration, 
                 start_date, 
                 end_date, 
-                created_by, 
-                class_id,
-                subject_id,
+                created_by,
+                subject,
+                total_marks,
                 passing_score
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -57,12 +65,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $start_date,
             $end_date,
             $_SESSION['user_id'],
-            $class_id,
-            $subject_id,
+            $subject,
+            $total_marks,
             $passing_score
         ]);
 
         $exam_id = $conn->lastInsertId();
+
+        // Link exam to selected classrooms
+        if (!empty($classroom_ids)) {
+            $stmt = $conn->prepare("
+                INSERT INTO exam_classrooms (exam_id, classroom_id)
+                VALUES (?, ?)
+            ");
+            foreach ($classroom_ids as $classroom_id) {
+                $stmt->execute([$exam_id, $classroom_id]);
+            }
+        }
 
         // Process questions
         if (isset($_POST['questions'])) {
@@ -93,7 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     );
                 }
 
-                // Insert question with or without image
+                // Insert question
                 $stmt = $conn->prepare("
                     INSERT INTO questions (exam_id, question_text, question_type, points, image_path)
                     VALUES (?, ?, ?, ?, ?)
@@ -103,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $q['text'],
                     $q['type'],
                     $q['points'],
-                    $image_path // Will be null if no image was uploaded
+                    $image_path
                 ]);
 
                 $question_id = $conn->lastInsertId();
@@ -139,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $conn->commit();
-        $success_message = "Exam and questions created successfully!";
+        $success_message = "Exam created successfully and assigned to selected classrooms!";
         
     } catch(PDOException $e) {
         if ($conn->inTransaction()) {
@@ -156,35 +175,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Exam - ExamMaster</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.0.7/css/boxicons.min.css" rel="stylesheet">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="../assets/css/dashboard.css" rel="stylesheet">
     <style>
-        .sidebar {
-            height: 100vh;
-            background: #2c3e50;
-            color: white;
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 250px;
-            padding-top: 20px;
-        }
-        .main-content {
-            margin-left: 250px;
-            padding: 20px;
-        }
-        .sidebar-link {
-            color: white;
-            text-decoration: none;
-            padding: 10px 20px;
-            display: block;
-            transition: 0.3s;
-        }
-        .sidebar-link:hover {
-            background: #34495e;
-            color: #ecf0f1;
-        }
-        .sidebar-link i {
-            margin-right: 10px;
+        .select2-container {
+            width: 100% !important;
         }
         .question-card {
             border: 1px solid #dee2e6;
@@ -201,161 +197,176 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: none;
             margin: 10px 0;
         }
-        .remove-image {
-            display: none;
-            margin-top: 5px;
-        }
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="text-center mb-4">
-            <h4>ExamMaster</h4>
-        </div>
-        <nav>
-            <a href="dashboard.php" class="sidebar-link">
-                <i class='bx bxs-dashboard'></i> Dashboard
-            </a>
-            <a href="create_exam.php" class="sidebar-link active">
-                <i class='bx bx-plus-circle'></i> Create Exam
-            </a>
-            <a href="my_exams.php" class="sidebar-link">
-                <i class='bx bx-book'></i> My Exams
-            </a>
-            <a href="../auth/logout.php" class="sidebar-link">
-                <i class='bx bx-log-out'></i> Logout
-            </a>
-        </nav>
-    </div>
+    <?php include 'includes/sidebar.php'; ?>
 
-    <!-- Main Content -->
     <div class="main-content">
-        <div class="container">
+        <div class="container-fluid">
             <h2 class="mb-4">Create New Exam</h2>
 
             <?php if ($success_message): ?>
-                <div class="alert alert-success">
-                    <?php echo $success_message; ?>
+                <div class="alert alert-success alert-dismissible fade show">
+                    <?php echo htmlspecialchars($success_message); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
-            
+
             <?php if ($error_message): ?>
-                <div class="alert alert-danger">
-                    <?php echo $error_message; ?>
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <?php echo htmlspecialchars($error_message); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             <?php endif; ?>
-            
-            <form id="examForm" method="POST" action="" enctype="multipart/form-data">
-                <!-- Exam Details -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h4>Exam Details</h4>
+
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" id="examForm">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Exam Title</label>
+                                <input type="text" class="form-control" name="title" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Subject</label>
+                                <input type="text" class="form-control" name="subject" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" name="description" rows="3"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Duration (minutes)</label>
+                                <input type="number" class="form-control" name="duration" required min="1">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Total Marks</label>
+                                <input type="number" class="form-control" name="total_marks" required min="1">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Start Date</label>
+                                <input type="datetime-local" class="form-control" name="start_date" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">End Date</label>
+                                <input type="datetime-local" class="form-control" name="end_date" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Passing Score (%)</label>
+                                <input type="number" class="form-control" name="passing_score" value="60" min="0" max="100">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Select Classrooms</label>
+                                <select class="form-control select2" name="classroom_ids[]" multiple required>
+                                    <?php foreach ($classrooms as $classroom): ?>
+                                        <option value="<?php echo $classroom['id']; ?>">
+                                            <?php echo htmlspecialchars($classroom['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h4>Questions</h4>
                         <div class="mb-3">
-                            <label for="title" class="form-label">Exam Title</label>
-                            <input type="text" class="form-control" id="title" name="title" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="description" class="form-label">Description</label>
-                            <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="duration" class="form-label">Duration (minutes)</label>
-                                    <input type="number" class="form-control" id="duration" name="duration" required>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="start_date" class="form-label">Start Date</label>
-                                    <input type="datetime-local" class="form-control" id="start_date" name="start_date" required>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="end_date" class="form-label">End Date</label>
-                                    <input type="datetime-local" class="form-control" id="end_date" name="end_date" required>
-                                </div>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-primary" onclick="addQuestion('mcq')">
+                                    <i class='bx bx-list-check'></i> Add MCQ
+                                </button>
+                                <button type="button" class="btn btn-info" onclick="addQuestion('true_false')">
+                                    <i class='bx bx-check-circle'></i> Add True/False
+                                </button>
+                                <button type="button" class="btn btn-success" onclick="addQuestion('short_answer')">
+                                    <i class='bx bx-text'></i> Add Short Answer
+                                </button>
                             </div>
                         </div>
 
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="publish" name="publish">
-                            <label class="form-check-label" for="publish">Publish exam immediately</label>
+                        <div id="questions-container">
+                            <!-- Questions will be added here dynamically -->
                         </div>
-                    </div>
-                </div>
 
-                <!-- Questions Section -->
-                <h4 class="mb-3">Questions</h4>
-                <div id="questionsContainer">
-                    <!-- Questions will be added here dynamically -->
+                        <div class="text-end mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> Create Exam
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <div class="mb-4">
-                    <button type="button" class="btn btn-secondary me-2" onclick="addQuestion('mcq')">Add MCQ Question</button>
-                    <button type="button" class="btn btn-secondary me-2" onclick="addQuestion('true_false')">Add True/False Question</button>
-                    <button type="button" class="btn btn-secondary" onclick="addQuestion('open')">Add Open Question</button>
-                </div>
-
-                <div class="d-flex justify-content-between mb-5">
-                    <button type="submit" class="btn btn-primary">Create Exam</button>
-                    <a href="dashboard.php" class="btn btn-secondary">Cancel</a>
-                </div>
-            </form>
+            </div>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script>
+        // Initialize Select2 for multiple classroom selection
+        $(document).ready(function() {
+            $('.select2').select2({
+                placeholder: 'Select classrooms...',
+                allowClear: true
+            });
+        });
+
         let questionCount = 0;
 
         function addQuestion(type) {
             const container = document.createElement('div');
             container.className = 'question-card';
-            
+            container.id = `question_${questionCount}`;
+
             let html = `
-                <div class="mb-3">
-                    <label class="form-label">Question ${questionCount + 1}</label>
-                    <input type="hidden" name="questions[${questionCount}][type]" value="${type}">
-                    <input type="hidden" name="questions[${questionCount}][index]" value="${questionCount}">
-                    <textarea class="form-control" name="questions[${questionCount}][text]" required></textarea>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Points</label>
-                    <input type="number" class="form-control" name="questions[${questionCount}][points]" value="1" min="1" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Image (optional)</label>
-                    <div class="input-group">
-                        <input type="file" class="form-control" name="questions[${questionCount}][image]" accept="image/*" onchange="previewImage(this)">
-                        <button type="button" class="btn btn-outline-danger remove-image" onclick="removeImage(this)" style="display: none;">Remove Image</button>
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <label class="form-label">Question Text</label>
+                        <textarea class="form-control" name="questions[${questionCount}][text]" required></textarea>
                     </div>
-                    <div class="image-preview-container">
-                        <img class="question-image" alt="Preview">
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Points</label>
+                        <input type="number" class="form-control" name="questions[${questionCount}][points]" required min="1">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Image (Optional)</label>
+                        <input type="file" class="form-control" name="questions[${questionCount}][image]" accept="image/*" onchange="previewImage(this, ${questionCount})">
+                        <div id="image_preview_${questionCount}" class="image-preview-container">
+                            <img src="" class="question-image" alt="Preview">
+                        </div>
                     </div>
                 </div>
             `;
 
             if (type === 'mcq') {
                 html += `
-                    <div class="options-container">
+                    <div class="mb-3">
                         <label class="form-label">Options</label>
                         <div id="options_${questionCount}">
-                            <div class="option-container mb-2">
-                                <div class="input-group">
-                                    <div class="input-group-text">
-                                        <input type="radio" name="questions[${questionCount}][correct_option]" value="0" required>
-                                    </div>
-                                    <input type="text" class="form-control" name="questions[${questionCount}][options][]" required>
-                                    <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.parentElement.remove()">Remove</button>
+                            <div class="input-group mb-2">
+                                <div class="input-group-text">
+                                    <input type="radio" name="questions[${questionCount}][correct_option]" value="0" required>
                                 </div>
+                                <input type="text" class="form-control" name="questions[${questionCount}][options][]" required>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addOption(${questionCount})">Add Option</button>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="addOption(${questionCount})">
+                            Add Option
+                        </button>
                     </div>
                 `;
             } else if (type === 'true_false') {
@@ -377,13 +388,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             html += `
-                <div class="text-end">
-                    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.parentElement.remove()">Delete Question</button>
-                </div>
+                <input type="hidden" name="questions[${questionCount}][type]" value="${type}">
+                <input type="hidden" name="questions[${questionCount}][index]" value="${questionCount}">
+                <button type="button" class="btn btn-sm btn-danger" onclick="removeQuestion(${questionCount})">
+                    Remove Question
+                </button>
             `;
 
             container.innerHTML = html;
-            document.getElementById('questionsContainer').appendChild(container);
+            document.getElementById('questions-container').appendChild(container);
             questionCount++;
         }
 
@@ -392,69 +405,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             const optionCount = optionsContainer.children.length;
             
             const optionDiv = document.createElement('div');
-            optionDiv.className = 'option-container mb-2';
+            optionDiv.className = 'input-group mb-2';
             optionDiv.innerHTML = `
-                <div class="input-group">
-                    <div class="input-group-text">
-                        <input type="radio" name="questions[${questionId}][correct_option]" value="${optionCount}" required>
-                    </div>
-                    <input type="text" class="form-control" name="questions[${questionId}][options][]" required>
-                    <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.parentElement.remove()">Remove</button>
+                <div class="input-group-text">
+                    <input type="radio" name="questions[${questionId}][correct_option]" value="${optionCount}" required>
                 </div>
+                <input type="text" class="form-control" name="questions[${questionId}][options][]" required>
+                <button type="button" class="btn btn-outline-danger" onclick="this.parentElement.remove()">
+                    <i class='bx bx-trash'></i>
+                </button>
             `;
             
             optionsContainer.appendChild(optionDiv);
         }
 
-        function previewImage(input) {
-            const container = input.closest('.mb-3');
-            const previewContainer = container.querySelector('.image-preview-container');
-            const preview = previewContainer.querySelector('img');
-            const removeButton = container.querySelector('.remove-image');
+        function removeQuestion(questionId) {
+            document.getElementById(`question_${questionId}`).remove();
+        }
+
+        function previewImage(input, questionId) {
+            const preview = document.getElementById(`image_preview_${questionId}`);
+            const image = preview.querySelector('img');
             
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    previewContainer.style.display = 'block';
-                    removeButton.style.display = 'inline-block';
+                    image.src = e.target.result;
+                    preview.style.display = 'block';
                 }
                 reader.readAsDataURL(input.files[0]);
+            } else {
+                image.src = '';
+                preview.style.display = 'none';
             }
         }
-
-        function removeImage(button) {
-            const container = button.closest('.mb-3');
-            const fileInput = container.querySelector('input[type="file"]');
-            const previewContainer = container.querySelector('.image-preview-container');
-            const preview = previewContainer.querySelector('img');
-            
-            fileInput.value = ''; // Clear file input
-            preview.src = ''; // Clear preview
-            previewContainer.style.display = 'none';
-            button.style.display = 'none';
-        }
-
-        // Form validation
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('examForm').addEventListener('submit', function(e) {
-                const startDate = new Date(document.getElementById('start_date').value);
-                const endDate = new Date(document.getElementById('end_date').value);
-                const now = new Date();
-
-                if (startDate < now) {
-                    e.preventDefault();
-                    alert('Start date cannot be in the past');
-                    return;
-                }
-
-                if (endDate <= startDate) {
-                    e.preventDefault();
-                    alert('End date must be after start date');
-                    return;
-                }
-            });
-        });
     </script>
 </body>
 </html>

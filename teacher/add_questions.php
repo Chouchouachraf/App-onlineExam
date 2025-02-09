@@ -16,7 +16,7 @@ if (!isset($_GET['exam_id'])) {
 
 $exam_id = $_GET['exam_id'];
 $host = 'localhost';
-$dbname = 'schemase';
+$dbname = 'exammaster';
 $user = 'root';
 $pass = '';
 

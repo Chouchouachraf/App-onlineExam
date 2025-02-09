@@ -1,5 +1,7 @@
 <?php
+session_start();
 require_once '../config/config.php';
+require_once '../config/connection.php';
 
 // Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
@@ -8,7 +10,6 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
     exit();
 }
 
-// Reuse the existing $conn from config.php
 $error = null;
 
 try {
@@ -152,6 +153,9 @@ try {
             <a href="manage_users.php" class="sidebar-link">
                 <i class='bx bxs-user-detail'></i> User Management
             </a>
+            <a href="manage_classrooms.php" class="sidebar-link">
+                <i class='bx bxs-school'></i> Manage Classrooms
+            </a>
             <a href="manage_user_approvals.php" class="sidebar-link">
                 <i class='bx bxs-user-check'></i> User Approvals
                 <?php if($unapprovedUsersCount !== null && $unapprovedUsersCount > 0) { ?>
@@ -174,7 +178,7 @@ try {
             <h4 class="m-0">Dashboard Overview</h4>
             <div>
                 <span class="text-muted">Welcome, </span>
-                <span class="fw-bold"><?php echo htmlspecialchars($_SESSION['user_name']); ?></span>
+                <span class="fw-bold"><?php echo htmlspecialchars($_SESSION['user_prenom'] . ' ' . $_SESSION['user_nom']); ?></span>
             </div>
         </div>
 

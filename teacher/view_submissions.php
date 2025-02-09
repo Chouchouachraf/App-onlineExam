@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once '../config/connection.php';
 
 // Check if user is logged in and is a teacher
 if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'enseignant') {
@@ -8,30 +9,28 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'enseignant') {
     exit();
 }
 
-// Check if exam ID is provided
-if (!isset($_GET['exam_id'])) {
+$exam_id = isset($_GET['exam_id']) ? $_GET['exam_id'] : null;
+$classroom_id = isset($_GET['classroom_id']) ? $_GET['classroom_id'] : null;
+$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'name';
+
+if (!$exam_id) {
     header("Location: dashboard.php");
     exit();
 }
 
-$exam_id = $_GET['exam_id'];
-$host = 'localhost';
-$dbname = 'schemase';
-$user = 'root';
-$pass = '';
-
 try {
-    $conn = new PDO("mysql:host=$host;dbname=$dbname", $user, $pass);
-    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
     // Get exam details
     $stmt = $conn->prepare("
-        SELECT e.*, u.nom as teacher_nom, u.prenom as teacher_prenom
+        SELECT e.*, 
+               COUNT(DISTINCT es.id) as submission_count,
+               c.name as classroom_name
         FROM exams e
-        JOIN users u ON e.created_by = u.id
+        LEFT JOIN exam_submissions es ON e.id = es.exam_id
+        LEFT JOIN classrooms c ON c.id = ?
         WHERE e.id = ? AND e.created_by = ?
+        GROUP BY e.id
     ");
-    $stmt->execute([$exam_id, $_SESSION['user_id']]);
+    $stmt->execute([$classroom_id, $exam_id, $_SESSION['user_id']]);
     $exam = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$exam) {
@@ -39,131 +38,173 @@ try {
         exit();
     }
 
-    // Get all student submissions for this exam
-    $stmt = $conn->prepare("
+    // Build the query for submissions
+    $query = "
         SELECT 
-            ea.id as attempt_id,
-            ea.started_at,
-            ea.submitted_at,
-            ea.score,
+            es.*,
             u.nom,
             u.prenom,
-            e.title as exam_title
-        FROM exam_attempts ea
-        JOIN users u ON ea.student_id = u.id
-        JOIN exams e ON ea.exam_id = e.id
-        WHERE ea.exam_id = ?
-        ORDER BY ea.submitted_at DESC
-    ");
-    $stmt->execute([$exam_id]);
+            c.name as classroom_name,
+            es.total_score,
+            COUNT(sa.id) as answered_questions,
+            (SELECT COUNT(*) FROM exam_questions WHERE exam_id = ?) as total_questions
+        FROM exam_submissions es
+        JOIN users u ON es.student_id = u.id
+        LEFT JOIN classrooms c ON u.classroom_id = c.id
+        LEFT JOIN student_answers sa ON es.id = sa.submission_id
+        WHERE es.exam_id = ?
+    ";
+
+    $params = [$exam_id, $exam_id];
+
+    if ($classroom_id) {
+        $query .= " AND u.classroom_id = ?";
+        $params[] = $classroom_id;
+    }
+
+    $query .= " GROUP BY es.id";
+
+    // Add sorting
+    switch ($sort_by) {
+        case 'score_asc':
+            $query .= " ORDER BY es.total_score ASC";
+            break;
+        case 'score_desc':
+            $query .= " ORDER BY es.total_score DESC";
+            break;
+        case 'classroom':
+            $query .= " ORDER BY c.name ASC, u.nom ASC";
+            break;
+        default:
+            $query .= " ORDER BY u.nom ASC, u.prenom ASC";
+    }
+
+    $stmt = $conn->prepare($query);
+    $stmt->execute($params);
     $submissions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // Get all classrooms for filter
+    $stmt = $conn->prepare("
+        SELECT DISTINCT c.* 
+        FROM classrooms c
+        JOIN users u ON c.id = u.classroom_id
+        JOIN exam_submissions es ON u.id = es.student_id
+        WHERE es.exam_id = ?
+    ");
+    $stmt->execute([$exam_id]);
+    $classrooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 } catch(PDOException $e) {
-    $error_message = "Database error: " . $e->getMessage();
+    die("Database error: " . $e->getMessage());
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>View Submissions - ExamMaster</title>
+    <title>View Submissions - <?php echo htmlspecialchars($exam['title']); ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        .sidebar {
-            height: 100vh;
-            width: 250px;
-            position: fixed;
-            top: 0;
-            left: 0;
-            padding: 20px;
-            background-color: #f8f9fa;
-            border-right: 1px solid #dee2e6;
-        }
-        .main-content {
-            margin-left: 250px;
-            padding: 20px;
-        }
-        .submission-card {
-            transition: transform 0.2s;
-        }
-        .submission-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-    </style>
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link href="../assets/css/dashboard.css" rel="stylesheet">
 </head>
 <body>
-    <!-- Sidebar -->
-    <div class="sidebar">
-        <div class="text-center mb-4">
-            <h4>ExamMaster</h4>
-        </div>
-        <div class="list-group">
-            <a href="dashboard.php" class="list-group-item list-group-item-action">
-                <i class="bi bi-speedometer2"></i> Dashboard
-            </a>
-            <a href="create_exam.php" class="list-group-item list-group-item-action">
-                <i class="bi bi-plus-circle"></i> Create Exam
-            </a>
-        </div>
-    </div>
+    <?php include 'includes/sidebar.php'; ?>
 
-    <!-- Main Content -->
     <div class="main-content">
         <div class="container-fluid">
-            <h2 class="mb-4">Exam Submissions: <?php echo htmlspecialchars($exam['title']); ?></h2>
-            
-            <?php if (isset($error_message)): ?>
-                <div class="alert alert-danger"><?php echo $error_message; ?></div>
-            <?php endif; ?>
-            
-            <div class="row">
-                <div class="col-md-12 mb-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Exam Details</h5>
-                            <p class="card-text">
-                                <strong>Created by:</strong> <?php echo htmlspecialchars($exam['teacher_prenom'] . ' ' . $exam['teacher_nom']); ?><br>
-                                <strong>Duration:</strong> <?php echo htmlspecialchars($exam['duration']); ?> minutes<br>
-                                <strong>Total Submissions:</strong> <?php echo count($submissions); ?>
-                            </p>
+            <div class="row mb-4">
+                <div class="col">
+                    <h2><?php echo htmlspecialchars($exam['title']); ?> - Submissions</h2>
+                    <p class="text-muted">
+                        Total Submissions: <?php echo count($submissions); ?>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <form class="row g-3" method="GET">
+                        <input type="hidden" name="exam_id" value="<?php echo htmlspecialchars($exam_id); ?>">
+                        
+                        <div class="col-md-4">
+                            <label class="form-label">Filter by Classroom</label>
+                            <select name="classroom_id" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Classrooms</option>
+                                <?php foreach ($classrooms as $classroom): ?>
+                                    <option value="<?php echo $classroom['id']; ?>" 
+                                            <?php echo ($classroom_id == $classroom['id']) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($classroom['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
-                    </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Sort by</label>
+                            <select name="sort_by" class="form-select" onchange="this.form.submit()">
+                                <option value="name" <?php echo $sort_by === 'name' ? 'selected' : ''; ?>>Student Name</option>
+                                <option value="classroom" <?php echo $sort_by === 'classroom' ? 'selected' : ''; ?>>Classroom</option>
+                                <option value="score_asc" <?php echo $sort_by === 'score_asc' ? 'selected' : ''; ?>>Score (Low to High)</option>
+                                <option value="score_desc" <?php echo $sort_by === 'score_desc' ? 'selected' : ''; ?>>Score (High to Low)</option>
+                            </select>
+                        </div>
+                    </form>
                 </div>
 
-                <?php foreach ($submissions as $submission): ?>
-                    <div class="col-md-6 mb-4">
-                        <div class="card submission-card">
-                            <div class="card-body">
-                                <h5 class="card-title">
-                                    <?php echo htmlspecialchars($submission['prenom'] . ' ' . $submission['nom']); ?>
-                                </h5>
-                                <div class="card-text">
-                                    <p>
-                                        <strong>Submitted:</strong> <?php echo date('Y-m-d H:i:s', strtotime($submission['submitted_at'])); ?><br>
-                                        <strong>Score:</strong> <?php echo number_format($submission['score'], 2); ?>%<br>
-                                    </p>
-                                    <div class="mt-3">
-                                        <a href="review_answers.php?exam_id=<?php echo $exam_id; ?>&attempt_id=<?php echo $submission['attempt_id']; ?>" 
-                                           class="btn btn-primary">
-                                            Review Answers
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
+                <div class="card-body">
+                    <?php if (empty($submissions)): ?>
+                        <div class="text-center py-5">
+                            <i class='bx bx-folder-open' style="font-size: 4rem; color: #ccc;"></i>
+                            <p class="mt-3">No submissions found for this exam.</p>
                         </div>
-                    </div>
-                <?php endforeach; ?>
-                
-                <?php if (empty($submissions)): ?>
-                    <div class="col-12">
-                        <div class="alert alert-info">
-                            No submissions found for this exam yet.
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Student Name</th>
+                                        <th>Classroom</th>
+                                        <th>Score</th>
+                                        <th>Questions Answered</th>
+                                        <th>Submission Time</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($submissions as $submission): ?>
+                                        <tr>
+                                            <td>
+                                                <?php echo htmlspecialchars($submission['nom'] . ' ' . $submission['prenom']); ?>
+                                            </td>
+                                            <td>
+                                                <?php echo htmlspecialchars($submission['classroom_name']); ?>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-<?php echo ($submission['total_score'] >= 50) ? 'success' : 'danger'; ?>">
+                                                    <?php echo $submission['total_score']; ?>%
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <?php echo $submission['answered_questions']; ?> / <?php echo $submission['total_questions']; ?>
+                                            </td>
+                                            <td>
+                                                <?php echo date('M d, Y H:i', strtotime($submission['submission_time'])); ?>
+                                            </td>
+                                            <td>
+                                                <a href="review_submission.php?submission_id=<?php echo $submission['id']; ?>" 
+                                                   class="btn btn-sm btn-primary">
+                                                    <i class='bx bx-show'></i> Review
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
-                <?php endif; ?>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>

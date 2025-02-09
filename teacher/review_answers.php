@@ -16,7 +16,7 @@ if (!isset($_GET['exam_id'])) {
 
 $exam_id = $_GET['exam_id'];
 $host = 'localhost';
-$dbname = 'schemase';
+$dbname = 'exammaster';
 $user = 'root';
 $pass = '';
 
@@ -229,10 +229,10 @@ try {
                             <div class="card-body">
                                 <h5 class="card-title">Question</h5>
                                 <p class="card-text"><?php echo htmlspecialchars($answer['question_text']); ?></p>
-                                
+                                 
                                 <h5 class="card-title mt-4">Student's Answer</h5>
                                 <p class="card-text"><?php echo nl2br(htmlspecialchars($answer['answer_text'])); ?></p>
-                                
+                                 
                                 <div class="row mt-4">
                                     <div class="col-md-6">
                                         <div class="form-group">

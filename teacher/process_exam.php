@@ -6,7 +6,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'enseignant') {
 }
 
 $host = 'localhost';
-$dbname = 'schemase';
+$dbname = 'exammaster';
 $user = 'root';
 $pass = '';
 
